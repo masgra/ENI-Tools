@@ -38,3 +38,4 @@ rsconnect/
 
 # own files
 *.txt
+*.Rproj

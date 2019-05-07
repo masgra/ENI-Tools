@@ -1,0 +1,85 @@
+# isntall required packages
+install.packages("igraph") # network analysis tool
+install.packages("ggraph") # network analysis tool
+install.packages("vegan")  # pairwise dissimilarity 
+install.packages("MCL")    # cluster detection
+
+# Install SpiecEasi package
+install.packages("devtools")
+library(devtools)
+install_github("zdk123/SpiecEasi", force = TRUE)
+
+library(SpiecEasi)
+library(igraph)
+library(Matrix)
+
+
+# set data path
+path.data = readLines( file("localpath.txt","r") ,n=1)
+
+
+## 1) Loading data into Phyloseq
+
+# load feature counts
+ds.all = read.csv(paste(path.data, "MT_Data-122018/readcounts/summary_L3.csv", sep=""), 
+                  sep=";", header=T, row.names=1, check.names=F)
+# remove unclassified reads
+ds.all<-ds.all[-which(rownames(ds.all) == "Not"),]
+
+# get sample 
+
+Reactor = list(R.R = c("S-3", "S-22", "S-27"), 
+               R.C = c("S-1","S-4","S-6","S-8","S-10","S-12","S-14","S-16","S-17","S-19","S-20","S-23","S-25"),
+               R.D = c("S-2","S-5","S-7","S-9","S-11","S-13","S-15","S-18","S-21","S-24","S-26")
+               )
+
+# quick and dirty subset selection 
+ds <- ds.all[,which(colnames(ds.all) %in% Reactor$R.C)]
+otu.sub <- ds[which( rownames(ds) %in% names(sort(rowSums(ds),decreasing=T))[1:200]),]
+
+
+# Spiec easy: non-normalized count OTU/data table with samples on rows and features/OTUs in columns
+
+SE.glasso  <- spiec.easi(t(otu.sub), nlambda=10, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-4)
+SE.mb      <- spiec.easi(t(otu.sub), nlambda=10, method = "mb", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-4)
+SE.sparcc  <- sparcc(t(otu.sub))
+
+
+## Define arbitrary threshold for SparCC correlation matrix for the graph
+sparcc.graph <- ((abs(SE.sparcc$Cor) >= 0.) & (abs(SE.sparcc$Cor) <= 0.99))
+diag(sparcc.graph) <- 0
+sparcc.graph <- Matrix(sparcc.graph, sparse=TRUE)
+
+ig.glasso     <- adj2igraph(getRefit(SE.glasso))
+ig.mb         <- adj2igraph(getRefit(SE.mb))
+ig.sparcc     <- adj2igraph(sparcc.graph)
+
+
+# Visualize using igraph plotting
+
+## set size of vertex proportional to clr-mean
+vsize    <- rowMeans(clr(otu.sub, 1))+6
+am.coord <- layout.fruchterman.reingold(ig.glasso)
+
+
+par(mfrow=c(1,3))
+plot(ig.glasso, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso")
+plot(ig.mb, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="mb")
+plot(ig.sparcc, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="Sparcc")
+
+
+
+
+
+
+secor  <- cov2cor(getOptCov(SE.glasso))
+sebeta <- symBeta(getOptBeta(SE.mb), mode='maxabs')
+elist.gl     <- summary(triu(secor*getRefit(SE.glasso), k=1))
+elist.mb     <- summary(sebeta)
+elist.sparcc <- summary(sparcc.graph*sparcc.amgut$Cor)
+
+hist(elist.sparcc[,3], main='', xlab='edge weights')
+hist(elist.mb[,3], add=TRUE, col='forestgreen')
+hist(elist.gl[,3], add=TRUE, col='red')
+
+
