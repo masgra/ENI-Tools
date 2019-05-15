@@ -6,12 +6,77 @@
 
 # Install SpiecEasi package
 # install.packages("devtools")
-library(devtools)
+# library(devtools)
 # install_github("zdk123/SpiecEasi", force = TRUE)
 
 library(SpiecEasi)
 library(igraph)
 library(Matrix)
+
+source("preprocessing.R")
+
+nc.path <- readLines( file("localpath.txt","r") ,n=1)
+
+## extract from biome file
+library(phyloseq)
+
+path.store <- paste(nc.path, "/Export/OTU-",sep="")
+path.load <- paste(nc.path, "/Export/Comparison-EGGNOG.biom",sep="")
+
+refresh.files = F
+# refresh tabler files
+if (refresh.files){
+  otu <- biome2table(path.load, sum.dublicate.samples= TRUE, rename=TRUE, sort=TRUE)
+  otu.t <- table2otu.table(otu$otu, otu$taxa)
+  # write OTU table to file
+  write.table(otu.t ,file = paste(path.store,"table-all.txt", sep=""),
+              quote = T, eol='\n', na='NA', row.names = T, sep='\t')
+  
+  otu.q <- table2QUIIME.table(otu$otu, otu$taxa)
+  # write OTU QUIIME table to file (for CoNet)
+  write.table(otu.q,file = paste(path.store,"QUIIME-all.txt", sep=""),
+              quote = F, sep='\t', eol='\n', na='NA', row.names = F)
+  rm(otu, otu.t, otu.q)
+}
+
+
+## load extracted files
+otu <- read.csv(paste(path.store,"table-all.txt", sep=""), header = T, sep = "\t")
+otu$description <- NULL
+
+## get signal-to-noise ratio
+otu.sn <- sn_calc(otu, nrep=100, f.bootsp=0.01)
+
+
+
+
+
+## subset selection 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # set data path
