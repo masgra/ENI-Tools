@@ -48,74 +48,73 @@ otu$description <- NULL
 otu.sn <- sn_calc(otu, nrep=100, f.bootsp=0.01)
 
 
-
+# OTU rank based selection: get OTU sorted by mean ranking 
+range <- 1:1250
+otu.rank <- apply(otu, 2, function(x) rank(x)-min(rank(x)))
+otu.rank <- rownames(otu.rank[which( rownames(otu.rank) %in% names(sort(rowSums(otu.rank),decreasing=T))[range]),])
 
 
 ## subset selection 
 
+Reactor = list(R.R = c("S3", "S22", "S27"), 
+               R.C = c("S1","S4","S6","S8","S10","S12","S14","S16","S17","S19","S20","S23","S25"),
+               R.D = c("S2","S5","S7","S9","S11","S13","S15","S18","S21","S24","S26")
+)
+
+# subset selection: reactor
+otu.sub <- otu[,which(colnames(otu) %in% Reactor$R.D)]
+# store column sum 
+otu.sub.sum <- colSums(otu.sub)
+# subset selection: components 
+otu.sub <- otu.sub[otu.rank, ]
+# restore original size 
+if ("Not_assigned" %in% otu.rank){
+  # join removed counts to not assigend 
+  otu.sub["Not_assigned",] <- otu.sub["Not_assigned",] + otu.sub.sum - colSums(otu.sub)
+}else(
+  # add new feature to OTU.sub with removed counts
+  otu.sub[nrow(otu.sub)+1,] = list("Not_assigned" = otu.sub.sum - colSums(otu.sub))
+)
+
+
+
+# correlation between 
+library("vegan")
+
+
+plot(clr(otu.sub[,9]), clr(otu.sub[,11])) # high vs low expressed sample R.D
+abline(a = 0, b = 1, col = 'red')
+
+plot(clr(otu.sub[,11]), clr(otu.sub[,10])) # two low expressed sample R.D
+abline(a = 0, b = 1, col = 'red')
+colSums(otu.sub)
+
+plot(clr(otu.sub[,2]), clr(otu.sub[,9])) # high vs low expressed sample R.C
+abline(a = 0, b = 1, col = 'red')
+
+plot(clr(otu.sub[,2]), clr(otu.sub[,10])) # two low expressed sample R.C
+abline(a = 0, b = 1, col = 'red')
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# set data path
-path.data = readLines( file("localpath.txt","r") ,n=1)
-
-
-## 1) Loading data into Phyloseq
-
-# load feature counts
-ds.all = read.csv(paste(path.data, "MT_Data-122018/readcounts/summary_L3.csv", sep=""), 
-                  sep=";", header=T, row.names=1, check.names=F)
-# remove unclassified reads
-ds.all<-ds.all[-which(rownames(ds.all) == "Not"),]
-
-# get sample 
-
-Reactor = list(R.R = c("S-3", "S-22", "S-27"), 
-               R.C = c("S-1","S-4","S-6","S-8","S-10","S-12","S-14","S-16","S-17","S-19","S-20","S-23","S-25"),
-               R.D = c("S-2","S-5","S-7","S-9","S-11","S-13","S-15","S-18","S-21","S-24","S-26")
-               )
-
-# quick and dirty subset selection 
-ds <- ds.all[,which(colnames(ds.all) %in% Reactor$R.C)]
-otu.sub <- ds[which( rownames(ds) %in% names(sort(rowSums(ds),decreasing=T))[1:500]),]
 
 
 # Spiec easy: non-normalized count OTU/data table with samples on rows and features/OTUs in columns
 ptm <- proc.time()
-SE.glasso  <- spiec.easi(t(otu.sub), nlambda=10, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-)
+SE.glasso  <- spiec.easi(t(otu.sub), nlambda=100, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-4)
 proc.time() - ptm
+
 ptm <- proc.time()
 SE.mb      <- spiec.easi(t(otu.sub), nlambda=100, method = "mb", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-4)
 proc.time() - ptm
+
 SE.sparcc  <- sparcc(t(otu.sub))
 
-getOptInd(SE.mb)
+getOptInd(SE.glasso)
+getStability(SE.glasso) # default target stability is 0.05 
 getStability(SE.mb) # default target stability is 0.05 
-
-sum(getRefit(SE.mb))/2
+sum(getRefit(SE.glasso))/2
 
 
 
