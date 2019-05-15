@@ -90,7 +90,7 @@ biome2table <- function(filepath, sum.dublicate.samples= TRUE, rename=TRUE, sort
 }
 
 
-
+# create table from MEGAN6 biom file export of lowest taxa level 
 table2otu.table <- function(otu, taxa, sort = TRUE){
   # ---- create otu table of lowest level
   
@@ -119,7 +119,7 @@ table2otu.table <- function(otu, taxa, sort = TRUE){
   return(otu.table)
 }
   
-
+# create table from MEGAN6 biom file export, similar to QUIIME OTU table 
 table2QUIIME.table <- function(otu, taxa){
   
   ## ---- generate QUIIME OTU tabe output 
@@ -130,6 +130,78 @@ table2QUIIME.table <- function(otu, taxa){
   return(Q.table)
 
 }
+
+
+# function to rank OTU table by counts and report the featuede names of position
+# min.lim to max.lim 
+count_ranked_range <- function(otu, min.lim = -1, max.lim = -1){
+  # get OTU sorted by mean ranking 
+  
+  # rank every column, subtract minimum
+  otu.rank <- apply(otu, 2, function(x) rank(x)-min(rank(x)))
+  # get rows from subsection
+  otu.rank <- rownames(otu.rank[which( rownames(otu.rank) %in% names(sort(rowSums(otu.rank),
+                                                                          decreasing=T))[min.lim:max.lim]),])
+  return(otu.rank)
+  
+}
+
+
+# function to exclude features from OTU while keeping the original sample size
+exclude_rare <- function(x, names.stay){
+  
+  for (i in names(x)){
+    # store column sum 
+    otu.sub.sum <- colSums(x[[i]])
+    # subset selection: components 
+    x[[i]] <- x[[i]][names.stay, ]
+    # restore original size 
+    if ("Not_assigned" %in% names.stay){
+      # join removed counts to not assigend 
+      x[[i]]["Not_assigned",] <- x[[i]]["Not_assigned",] + otu.sub.sum - colSums(x[[i]])
+    }else(
+      # add new feature to OTU.sub with removed counts
+      x[[i]][nrow(x[[i]])+1,] <- list("Not_assigned" = otu.sub.sum - colSums(x[[i]]))
+    )
+  }
+  return(x)
+}
+
+exclude_rare_QUIIME <- function(otu.q, names.stay = otu.rank, resetID = T){
+  
+  # get OTU Lable from taxonomy
+  taxon <- data.frame("#OTU ID"= stringr::str_split_fixed(
+  stringr::str_split_fixed(otu.q$taxonomy, "; ", 4)[,4], " ", 2)[,1], 
+  check.names = F, stringsAsFactors = F)
+  rownames(taxon) <- rownames(otu.q)
+  # get location of "Not_assigned"
+  na.row <- which(rownames(taxon)== "-2")
+  # get columns with counts vectro
+  c.otu <-1:(ncol(otu.q)-1)
+  # set na-label in taxon (for compare)
+  taxon[na.row,1] <- "Not_assigned"
+  # store sum per column
+  otu.q.colsum <- colSums(otu.q[,c.otu])
+  # set all rare species columns to zero 
+  otu.q[which(!(taxon[,1] %in% otu.rank)), c.otu ] <- 0
+  # restore sample sizes
+  otu.q[na.row, c.otu] <- otu.q[na.row, c.otu] + otu.q.colsum - colSums( otu.q[ ,c.otu])
+  
+  
+  # reset row names
+  if (resetID){
+    taxon$`#OTU ID`[which(taxon$`#OTU ID`== "NA")] <- which(taxon$`#OTU ID`== "NA")
+    rownames(otu.q) <- taxon$`#OTU ID`
+  }
+  return(otu.q)
+  
+}
+
+
+
+
+
+
 
 
 

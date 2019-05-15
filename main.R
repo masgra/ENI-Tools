@@ -9,22 +9,34 @@
 # library(devtools)
 # install_github("zdk123/SpiecEasi", force = TRUE)
 
-library(SpiecEasi)
+
 library(igraph)
 library(Matrix)
 
-source("preprocessing.R")
-
+####################################################################################
+# -- General 
 nc.path <- readLines( file("localpath.txt","r") ,n=1)
 
-## extract from biome file
+
+
+
+####################################################################################
+# -- Preprocessing
+
+source("preprocessing.R")
+
+
+## 1) extract from biome file
 library(phyloseq)
+
+# shoul biom files be extracted again  
+refresh.files = T
 
 path.store <- paste(nc.path, "/Export/OTU-",sep="")
 path.load <- paste(nc.path, "/Export/Comparison-EGGNOG.biom",sep="")
 
-refresh.files = F
-# refresh tabler files
+# refresh and load OTU tabler files
+
 if (refresh.files){
   otu <- biome2table(path.load, sum.dublicate.samples= TRUE, rename=TRUE, sort=TRUE)
   otu.t <- table2otu.table(otu$otu, otu$taxa)
@@ -33,93 +45,123 @@ if (refresh.files){
               quote = T, eol='\n', na='NA', row.names = T, sep='\t')
   
   otu.q <- table2QUIIME.table(otu$otu, otu$taxa)
+  
+  #replace 'not assigend' - line
+  otu.q[which(otu.q$`#OTU ID` == "-2"),ncol(otu.q)]
+  
   # write OTU QUIIME table to file (for CoNet)
   write.table(otu.q,file = paste(path.store,"QUIIME-all.txt", sep=""),
               quote = F, sep='\t', eol='\n', na='NA', row.names = F)
-  rm(otu, otu.t, otu.q)
+  otu <- otu.t
+  rm(otu.t, otu.q)
+}else{
+  # load extracted files
+  otu <- read.csv(paste(path.store,"table-all.txt", sep=""), header = T, sep = "\t")
 }
 
 
-## load extracted files
-otu <- read.csv(paste(path.store,"table-all.txt", sep=""), header = T, sep = "\t")
-otu$description <- NULL
-
-## get signal-to-noise ratio
-otu.sn <- sn_calc(otu, nrep=100, f.bootsp=0.01)
+## 2) Get signal-to-noise ratio (we do not use it because it is computationaly heavy)
+# otu.sn <- sn_calc(otu, nrep=100, f.bootsp=0.01)
 
 
-# OTU rank based selection: get OTU sorted by mean ranking 
-range <- 1:1250
-otu.rank <- apply(otu, 2, function(x) rank(x)-min(rank(x)))
-otu.rank <- rownames(otu.rank[which( rownames(otu.rank) %in% names(sort(rowSums(otu.rank),decreasing=T))[range]),])
+## 3) OTU rank based selection: 
+otu.rank <- count_ranked_range(otu, min.lim = 1, max.lim = 100)
 
 
-## subset selection 
-
+## 4) Subset separation and exclusion of rare species from OTU tabel 
 Reactor = list(R.R = c("S3", "S22", "S27"), 
                R.C = c("S1","S4","S6","S8","S10","S12","S14","S16","S17","S19","S20","S23","S25"),
                R.D = c("S2","S5","S7","S9","S11","S13","S15","S18","S21","S24","S26")
 )
 
-# subset selection: reactor
-otu.sub <- otu[,which(colnames(otu) %in% Reactor$R.D)]
-# store column sum 
-otu.sub.sum <- colSums(otu.sub)
-# subset selection: components 
-otu.sub <- otu.sub[otu.rank, ]
-# restore original size 
-if ("Not_assigned" %in% otu.rank){
-  # join removed counts to not assigend 
-  otu.sub["Not_assigned",] <- otu.sub["Not_assigned",] + otu.sub.sum - colSums(otu.sub)
-}else(
-  # add new feature to OTU.sub with removed counts
-  otu.sub[nrow(otu.sub)+1,] = list("Not_assigned" = otu.sub.sum - colSums(otu.sub))
-)
+# subset separation: reactor
+otu.sub <- list()
+otu.sub$R.C <- otu[,which(colnames(otu) %in% Reactor$R.C)]
+otu.sub$R.D <- otu[,which(colnames(otu) %in% Reactor$R.D)]
+otu.sub$R.R <- otu[,which(colnames(otu) %in% Reactor$R.R)]
+
+# exclusion or rare species from subset 
+# Note: **first exclusion, then separation by reactors would have been smarter
+otu.sub <- exclude_rare(otu.sub, names.stay = otu.rank)
 
 
+## 5) Subset separation and exclusion of rare species from QUIIME tabel
+reset.file = F
+if (reset.file){
+  otu.q <- read.csv(paste(path.store,"QUIIME-all.txt", sep=""), header = T, sep = "\t", 
+                    check.names = TRUE, row.names = 1)
+  otu.q <- exclude_rare_QUIIME(otu.q, names.stay = otu.rank, resetID = T)
+  
+  # write OTU QUIIME table to file (for CoNet)
+  write.table(cbind('#OTU ID' = rownames(otu.q), otu.q) ,file = paste(path.store,"QUIIME-rar.txt", sep=""),
+              quote = F, sep='\t', eol='\n', na='NA', row.names = F)
+  rm(otu.q)
+}
+
+
+
+####################################################################################
+# -- general inspection of DS
+
+l <- nrow(otu.sub$R.C)-1
 
 # correlation between 
 library("vegan")
 
-
-plot(clr(otu.sub[,9]), clr(otu.sub[,11])) # high vs low expressed sample R.D
-abline(a = 0, b = 1, col = 'red')
-
-plot(clr(otu.sub[,11]), clr(otu.sub[,10])) # two low expressed sample R.D
-abline(a = 0, b = 1, col = 'red')
-colSums(otu.sub)
-
-plot(clr(otu.sub[,2]), clr(otu.sub[,9])) # high vs low expressed sample R.C
-abline(a = 0, b = 1, col = 'red')
-
-plot(clr(otu.sub[,2]), clr(otu.sub[,10])) # two low expressed sample R.C
-abline(a = 0, b = 1, col = 'red')
+# start vs end 
+par(mfrow=c(1,3))
+  plot(clr(otu.sub$R.C$S1[1:l]), clr(otu.sub$R.C$S25[1:l])) # high vs low expressed sample R.D
+  abline(a = 0, b = 1, col = 'red')
+  plot(clr(otu.sub$R.R$S3[1:l]), clr(otu.sub$R.R$S27[1:l])) # high vs low expressed sample R.D
+  abline(a = 0, b = 1, col = 'red')
+  plot(clr(otu.sub$R.D$S2[1:l]), clr(otu.sub$R.D$S26[1:l])) # high vs low expressed sample R.D
+  abline(a = 0, b = 1, col = 'red')
 
 
+# high vs. low library size 
+par(mfrow=c(1,3))
+  plot(clr(otu.sub$R.C$S25[1:l]), clr(otu.sub$R.C$S10[1:l])) # high vs low expressed sample R.D
+  abline(a = 0, b = 1, col = 'red')
+  plot(clr(otu.sub$R.C$S25[1:l]), clr(otu.sub$R.C$S4[1:l])) # high vs low expressed sample R.D
+  abline(a = 0, b = 1, col = 'red')
+  plot(clr(otu.sub$R.D$S9[1:l]), clr(otu.sub$R.D$S11[1:l])) # high vs low expressed sample R.D
+  abline(a = 0, b = 1, col = 'red')
 
+  rm(l)
 
+  ####################################################################################
+  # -- SPICE-EASI
+library("SpiecEasi")
 
-
+ds <- otu.sub$R.C
+  
+  
 # Spiec easy: non-normalized count OTU/data table with samples on rows and features/OTUs in columns
-ptm <- proc.time()
-SE.glasso  <- spiec.easi(t(otu.sub), nlambda=100, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-4)
-proc.time() - ptm
+
+# optimization: if 
+
 
 ptm <- proc.time()
-SE.mb      <- spiec.easi(t(otu.sub), nlambda=100, method = "mb", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-4)
+SE.glasso  <- spiec.easi(t(ds), nlambda=50, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-1)
 proc.time() - ptm
 
-SE.sparcc  <- sparcc(t(otu.sub))
+getOptInd(SE.glasso) # get optimum index for nlambda
+getStability(SE.glasso) # achieved stability: target stability is 0.05 
 
-getOptInd(SE.glasso)
-getStability(SE.glasso) # default target stability is 0.05 
-getStability(SE.mb) # default target stability is 0.05 
-sum(getRefit(SE.glasso))/2
 
+ptm <- proc.time()
+SE.mb      <- spiec.easi(t(ds), nlambda=50, method = "mb", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-1)
+proc.time() - ptm
+
+getOptInd(SE.mb) # get optimum index for nlambda
+getStability(SE.mb) # achieved stability: target stability is 0.05 
+
+
+SE.sparcc  <- sparcc(ds, iter = 20, inner_iter = 10, th = 0.1)
 
 
 ## Define arbitrary threshold for SparCC correlation matrix for the graph
-sparcc.graph <- ((abs(SE.sparcc$Cor) >= 0.3) & (abs(SE.sparcc$Cor) <= 1))
+sparcc.graph <- ((abs(SE.sparcc$Cor) >= 0.3) & (abs(SE.sparcc$Cor) < 1.0))
 diag(sparcc.graph) <- 0
 sparcc.graph <- Matrix(sparcc.graph, sparse=TRUE)
 
@@ -131,7 +173,7 @@ ig.sparcc     <- adj2igraph(sparcc.graph)
 # Visualize using igraph plotting
 
 ## set size of vertex proportional to clr-mean
-vsize    <- rowMeans(clr(otu.sub, 1))+4.5
+vsize    <- rowMeans(clr(ds, 1))+4.5
 am.coord <- layout.fruchterman.reingold(ig.glasso)
 am.coord <- layout.fruchterman.reingold(ig.sparcc)
 am.coord <- layout.fruchterman.reingold(ig.mb)
@@ -140,6 +182,10 @@ par(mfrow=c(1,3))
 plot(ig.glasso, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso")
 plot(ig.mb, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="mb")
 plot(ig.sparcc, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="Sparcc")
+
+
+
+
 
 
 
