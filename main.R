@@ -55,7 +55,7 @@ sum(getRefit(SE.mb))/2
 
 
 ## Define arbitrary threshold for SparCC correlation matrix for the graph
-sparcc.graph <- ((abs(SE.sparcc$Cor) >= 0.3) & (abs(SE.sparcc$Cor) <= 0.99))
+sparcc.graph <- ((abs(SE.sparcc$Cor) >= 0.3) & (abs(SE.sparcc$Cor) <= 1))
 diag(sparcc.graph) <- 0
 sparcc.graph <- Matrix(sparcc.graph, sparse=TRUE)
 
