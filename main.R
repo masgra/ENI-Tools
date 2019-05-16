@@ -125,6 +125,7 @@ l <- nrow(otu.sub$R.C)-1
 
 # correlation between 
 library("SpiecEasi")
+library("vegan")
 
 # start vs end 
 par(mfrow=c(1,3))
@@ -145,11 +146,23 @@ plot(clr(otu.sub$R.C$S25[1:l]), clr(otu.sub$R.C$S4[1:l])) # high vs low expresse
 plot(clr(otu.sub$R.D$S9[1:l]), clr(otu.sub$R.D$S11[1:l])) # high vs low expressed sample R.D
   abline(a = 0, b = 1, col = 'red')
 
+  
+  
+# get inverse simpson indices 
+diversity(as.matrix(otu[,2:ncol(otu)]), index = "invsimpson", MARGIN = 2,base = exp(1))
+diversity(as.matrix(otu.sub$R.C), index = "invsimpson", MARGIN = 2) 
+diversity(as.matrix(otu.sub$R.D), index = "invsimpson", MARGIN = 2) 
+diversity(as.matrix(otu.sub$R.R), index = "invsimpson", MARGIN = 2) 
+
+
+  
+  
   rm(l)
 
   ####################################################################################
   # -- SPICE-EASI
 library("SpiecEasi")
+
 
 ds <- otu.sub$R.C
   
