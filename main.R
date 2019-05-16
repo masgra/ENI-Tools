@@ -9,7 +9,6 @@
 # library(devtools)
 # install_github("zdk123/SpiecEasi", force = TRUE)
 
-
 library(igraph)
 library(Matrix)
 
@@ -30,7 +29,7 @@ source("preprocessing.R")
 library(phyloseq)
 
 # shoul biom files be extracted again  
-refresh.files = T
+refresh.files = F
 
 path.store <- paste(nc.path, "/Export/OTU-",sep="")
 path.load <- paste(nc.path, "/Export/Comparison-EGGNOG.biom",sep="")
@@ -64,12 +63,14 @@ if (refresh.files){
 # otu.sn <- sn_calc(otu, nrep=100, f.bootsp=0.01)
 
 
-## 3) OTU rank based selection: 
-otu.rank <- count_ranked_range(otu, min.lim = 1, max.lim = 100)
-
+## 3) OTU rank based selection:
+max.rank = 250
+min.rank = 1
+otu.rank <- count_ranked_range(otu, min.lim = min.rank, max.lim = max.rank)
+nOTU = max.rank
 
 ## 4) Subset separation and exclusion of rare species from OTU tabel 
-Reactor = list(R.R = c("S3", "S22", "S27"), 
+Reactor = list(R.R = c("S3","S22","S27"), 
                R.C = c("S1","S4","S6","S8","S10","S12","S14","S16","S17","S19","S20","S23","S25"),
                R.D = c("S2","S5","S7","S9","S11","S13","S15","S18","S21","S24","S26")
 )
@@ -86,16 +87,33 @@ otu.sub <- exclude_rare(otu.sub, names.stay = otu.rank)
 
 
 ## 5) Subset separation and exclusion of rare species from QUIIME tabel
-reset.file = F
+
+reset.file = FALSE
 if (reset.file){
   otu.q <- read.csv(paste(path.store,"QUIIME-all.txt", sep=""), header = T, sep = "\t", 
                     check.names = TRUE, row.names = 1)
   otu.q <- exclude_rare_QUIIME(otu.q, names.stay = otu.rank, resetID = T)
   
+  descripts <- c('taxonomy', '#OTU ID')
+  
+  otu.q.sub <- list()
+  otu.q.sub$R.C <- otu.q[ ,which(colnames(otu.q) %in% c(Reactor$R.C, descripts))]
+  otu.q.sub$R.D <- otu.q[ ,which(colnames(otu.q) %in% c(Reactor$R.D, descripts))]
+  otu.q.sub$R.R <- otu.q[ ,which(colnames(otu.q) %in% c(Reactor$R.R, descripts))]
+  
+  
   # write OTU QUIIME table to file (for CoNet)
-  write.table(cbind('#OTU ID' = rownames(otu.q), otu.q) ,file = paste(path.store,"QUIIME-rar.txt", sep=""),
+  write.table(cbind('#OTU ID' = rownames(otu.q.sub$R.C), otu.q.sub$R.C) ,file = paste(path.store,"QUIIME-RC-rar",nOTU,".txt", sep=""),
               quote = F, sep='\t', eol='\n', na='NA', row.names = F)
-  rm(otu.q)
+  write.table(cbind('#OTU ID' = rownames(otu.q.sub$R.D), otu.q.sub$R.D) ,file = paste(path.store,"QUIIME-RD-rar",nOTU,".txt", sep=""),
+              quote = F, sep='\t', eol='\n', na='NA', row.names = F)
+  write.table(cbind('#OTU ID' = rownames(otu.q.sub$R.R), otu.q.sub$R.R) ,file = paste(path.store,"QUIIME-RR-rar",nOTU,".txt", sep=""),
+              quote = F, sep='\t', eol='\n', na='NA', row.names = F)
+  
+  write.table(cbind('#OTU ID' = rownames(otu.q), otu.q) ,file = paste(path.store,"QUIIME-rar",nOTU,".txt", sep=""),
+              quote = F, sep='\t', eol='\n', na='NA', row.names = F)
+  
+  rm(otu.q, otu.q.sub, descripts)
 }
 
 
@@ -106,25 +124,25 @@ if (reset.file){
 l <- nrow(otu.sub$R.C)-1
 
 # correlation between 
-library("vegan")
+library("SpiecEasi")
 
 # start vs end 
 par(mfrow=c(1,3))
-  plot(clr(otu.sub$R.C$S1[1:l]), clr(otu.sub$R.C$S25[1:l])) # high vs low expressed sample R.D
+plot(clr(otu.sub$R.C$S1[1:l]), clr(otu.sub$R.C$S25[1:l])) # high vs low expressed sample R.D
   abline(a = 0, b = 1, col = 'red')
-  plot(clr(otu.sub$R.R$S3[1:l]), clr(otu.sub$R.R$S27[1:l])) # high vs low expressed sample R.D
+plot(clr(otu.sub$R.R$S3[1:l]), clr(otu.sub$R.R$S27[1:l])) # high vs low expressed sample R.D
   abline(a = 0, b = 1, col = 'red')
-  plot(clr(otu.sub$R.D$S2[1:l]), clr(otu.sub$R.D$S26[1:l])) # high vs low expressed sample R.D
+plot(clr(otu.sub$R.D$S2[1:l]), clr(otu.sub$R.D$S26[1:l])) # high vs low expressed sample R.D
   abline(a = 0, b = 1, col = 'red')
 
 
 # high vs. low library size 
 par(mfrow=c(1,3))
-  plot(clr(otu.sub$R.C$S25[1:l]), clr(otu.sub$R.C$S10[1:l])) # high vs low expressed sample R.D
+plot(clr(otu.sub$R.C$S25[1:l]), clr(otu.sub$R.C$S10[1:l])) # high vs low expressed sample R.D
   abline(a = 0, b = 1, col = 'red')
-  plot(clr(otu.sub$R.C$S25[1:l]), clr(otu.sub$R.C$S4[1:l])) # high vs low expressed sample R.D
+plot(clr(otu.sub$R.C$S25[1:l]), clr(otu.sub$R.C$S4[1:l])) # high vs low expressed sample R.D
   abline(a = 0, b = 1, col = 'red')
-  plot(clr(otu.sub$R.D$S9[1:l]), clr(otu.sub$R.D$S11[1:l])) # high vs low expressed sample R.D
+plot(clr(otu.sub$R.D$S9[1:l]), clr(otu.sub$R.D$S11[1:l])) # high vs low expressed sample R.D
   abline(a = 0, b = 1, col = 'red')
 
   rm(l)
@@ -142,30 +160,31 @@ ds <- otu.sub$R.C
 
 
 ptm <- proc.time()
-SE.glasso  <- spiec.easi(t(ds), nlambda=50, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-1)
+SE.glasso  <- spiec.easi(t(ds), nlambda=50, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-2)
 proc.time() - ptm
-
-getOptInd(SE.glasso) # get optimum index for nlambda
+# quanity check 
+getOptInd(SE.glasso) # get index of optimum lambda: close to 1 is good for comutational speed, exactly 1 is bad. 
 getStability(SE.glasso) # achieved stability: target stability is 0.05 
-
+# optimization: 
 
 ptm <- proc.time()
 SE.mb      <- spiec.easi(t(ds), nlambda=50, method = "mb", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-1)
 proc.time() - ptm
+# quality check
+getOptInd(SE.mb) 
+getStability(SE.mb)
 
-getOptInd(SE.mb) # get optimum index for nlambda
-getStability(SE.mb) # achieved stability: target stability is 0.05 
 
+SE.sparcc  <- sparcc(ds, iter = 20, inner_iter = 20, th = 0.1)
 
-SE.sparcc  <- sparcc(ds, iter = 20, inner_iter = 10, th = 0.1)
-
+vertix <- as.list(rownames(ds)); names(vertix) <- rownames(ds)
 
 ## Define arbitrary threshold for SparCC correlation matrix for the graph
 sparcc.graph <- ((abs(SE.sparcc$Cor) >= 0.3) & (abs(SE.sparcc$Cor) < 1.0))
 diag(sparcc.graph) <- 0
 sparcc.graph <- Matrix(sparcc.graph, sparse=TRUE)
 
-ig.glasso     <- adj2igraph(getRefit(SE.glasso))
+ig.glasso     <- adj2igraph(getRefit(SE.glasso), vertex.attr= vertix)
 ig.mb         <- adj2igraph(getRefit(SE.mb))
 ig.sparcc     <- adj2igraph(sparcc.graph)
 
@@ -179,13 +198,15 @@ am.coord <- layout.fruchterman.reingold(ig.sparcc)
 am.coord <- layout.fruchterman.reingold(ig.mb)
 
 par(mfrow=c(1,3))
-plot(ig.glasso, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso")
-plot(ig.mb, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="mb")
-plot(ig.sparcc, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="Sparcc")
+  plot(ig.glasso, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso")
+  plot(ig.mb, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="mb")
+  plot(ig.sparcc, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="Sparcc")
 
 
+# https://kateto.net/networks-r-igraph
 
 
+plot(1,2)
 
 
 
