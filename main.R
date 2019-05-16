@@ -64,7 +64,7 @@ if (refresh.files){
 
 
 ## 3) OTU rank based selection:
-max.rank = 250
+max.rank = 1000
 min.rank = 1
 otu.rank <- count_ranked_range(otu, min.lim = min.rank, max.lim = max.rank)
 nOTU = max.rank
@@ -158,49 +158,73 @@ ds <- otu.sub$R.C
 
 # optimization: if 
 
+SE.glasso <- list()
+SE.mb <- list()
+SE.sparcc <- list()
 
 ptm <- proc.time()
-SE.glasso  <- spiec.easi(t(ds), nlambda=50, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-2)
+SE.glasso$RC  <- spiec.easi(t(otu.sub$R.C), nlambda=50, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-1)
+SE.glasso$RD  <- spiec.easi(t(otu.sub$R.D), nlambda=50, method = "glasso", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-1)
 proc.time() - ptm
 # quanity check 
-getOptInd(SE.glasso) # get index of optimum lambda: close to 1 is good for comutational speed, exactly 1 is bad. 
-getStability(SE.glasso) # achieved stability: target stability is 0.05 
+getOptInd(SE.glasso$RC)# get index of optimum lambda: close to 1 is good for comutational speed, exactly 1 is bad. 
+getOptInd(SE.glasso$RD)
+getStability(SE.glasso$Rc) # achieved stability: target stability is 0.05 
+getStability(SE.glasso$RD)
 # optimization: 
 
 ptm <- proc.time()
-SE.mb      <- spiec.easi(t(ds), nlambda=50, method = "mb", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-1)
+SE.mb$RC      <- spiec.easi(t(otu.sub$R.C), nlambda=50, method = "mb", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-1)
+SE.mb$RD      <- spiec.easi(t(otu.sub$R.D), nlambda=50, method = "mb", verbose = T, pulsar.params=list(rep.num=10, ncores=1), lambda.min.ratio=1e-1)
+proc.time() - ptm
 proc.time() - ptm
 # quality check
-getOptInd(SE.mb) 
-getStability(SE.mb)
+getOptInd(SE.mb$RC) 
+getOptInd(SE.mb$RD) 
+getStability(SE.mb$RC)
+getStability(SE.mb$RD)
 
 
-SE.sparcc  <- sparcc(ds, iter = 20, inner_iter = 20, th = 0.1)
+SE.sparcc$RC  <- sparcc(otu.sub$R.C, iter = 20, inner_iter = 20, th = 0.1)
+SE.sparcc$RD  <- sparcc(otu.sub$R.D, iter = 20, inner_iter = 20, th = 0.1)
 
 vertix <- as.list(rownames(ds)); names(vertix) <- rownames(ds)
 
 ## Define arbitrary threshold for SparCC correlation matrix for the graph
-sparcc.graph <- ((abs(SE.sparcc$Cor) >= 0.3) & (abs(SE.sparcc$Cor) < 1.0))
-diag(sparcc.graph) <- 0
-sparcc.graph <- Matrix(sparcc.graph, sparse=TRUE)
+sparcc.graph.RC <- ((abs(SE.sparcc$RC$Cor) >= 0.3) & (abs(SE.sparcc$RC$Cor) < 1.0))
+sparcc.graph.RD <- ((abs(SE.sparcc$RD$Cor) >= 0.3) & (abs(SE.sparcc$RD$Cor) < 1.0))
+diag(sparcc.graph.RC) <- 0
+diag(sparcc.graph.RD) <- 0
 
-ig.glasso     <- adj2igraph(getRefit(SE.glasso), vertex.attr= vertix)
-ig.mb         <- adj2igraph(getRefit(SE.mb))
-ig.sparcc     <- adj2igraph(sparcc.graph)
+sparcc.graph.RC <- Matrix(sparcc.graph.RC, sparse=TRUE)
+sparcc.graph.RD <- Matrix(sparcc.graph.RD, sparse=TRUE)
+
+ig.glasso <- list(); ig.mb <- list(); ig.sparcc <- list() 
+
+ig.glasso$RC     <- adj2igraph(getRefit(SE.glasso$RC), vertex.attr= vertix)
+ig.mb$RC         <- adj2igraph(getRefit(SE.mb$RC))
+ig.sparcc$RC     <- adj2igraph(sparcc.graph.RC)
+
+ig.glasso$RD     <- adj2igraph(getRefit(SE.glasso$RD), vertex.attr= vertix)
+ig.mb$RD         <- adj2igraph(getRefit(SE.mb$RD))
+ig.sparcc$RD     <- adj2igraph(sparcc.graph,RD)
 
 
 # Visualize using igraph plotting
 
 ## set size of vertex proportional to clr-mean
-vsize    <- rowMeans(clr(ds, 1))+4.5
-am.coord <- layout.fruchterman.reingold(ig.glasso)
-am.coord <- layout.fruchterman.reingold(ig.sparcc)
-am.coord <- layout.fruchterman.reingold(ig.mb)
+vsize    <- rowMeans(clr(otu.sub$R.C, 1))+4.5
+# am.coord <- layout.fruchterman.reingold(ig.glasso)
+am.coord <- layout.fruchterman.reingold(ig.sparcc$R.C)
+# am.coord <- layout.fruchterman.reingold(ig.mb)
 
-par(mfrow=c(1,3))
-  plot(ig.glasso, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso")
-  plot(ig.mb, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="mb")
-  plot(ig.sparcc, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="Sparcc")
+par(mfrow=c(2,3))
+  plot(ig.glasso$RC, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso")
+  plot(ig.mb$RC, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="mb")
+  plot(ig.sparcc$RC, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="Sparcc")
+  plot(ig.glasso$RD, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="glasso")
+  plot(ig.mb$RD, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="mb")
+  plot(ig.sparcc$RD, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="Sparcc")
 
 
 # https://kateto.net/networks-r-igraph
