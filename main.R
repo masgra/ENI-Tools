@@ -210,7 +210,7 @@ metric$KL <- lapply(rab.sub, function(x){
 
 #Bray Curtis dissimilarity
 metric$BC<-lapply(rab.sub,function(x) {
-  res <- 1-as.matrix(vegan::vegdist(x, method="bray", binary=F, diag=F, upper=F, na.rm = T))
+  res <- as.matrix(vegan::vegdist(x, method="bray", binary=F, diag=T, upper=F, na.rm = T))
   diag(res)=NA
   # remove "not asignede" (trash component) component
   res <-  as.data.frame(res[which(!(rownames(res) == "Not_assigned")),])
@@ -220,12 +220,18 @@ metric$BC<-lapply(rab.sub,function(x) {
 
 
 
+# get upper and lower quantiles for nvertex = 100 
+n.vert <- (nrow(rab.sub$R.C)-1)*(nrow(rab.sub$R.C)-2)/2
+n.th <- 500 # = n=1000!
+metric.th <- c((n.vert-n.th)/n.vert , .5, 1-(n.vert-n.th)/n.vert)
+
+
 # plot frequency histograms
-
-
-
 library("ggplot2")
-#Parson
+#Pearson
+print('Pearson threshold: R.C'); quantile( c(na.omit(c(metric$pearson$R.C[lower.tri(metric$pearson$R.C,diag = F)]))), probs = metric.th); 
+print('Pearson threshold: R.D'); quantile( c(na.omit(c(metric$pearson$R.D[lower.tri(metric$pearson$R.D,diag = F)]))), probs = metric.th); 
+
 ggplot()+ 
   stat_density( aes( x=c(na.omit(c(metric$pearson$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
   stat_density( aes( x=c(na.omit(c(metric$pearson$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
@@ -235,6 +241,9 @@ ggplot()+
   scale_x_continuous(limits=c(-1,1))
 
 #Spearman
+print('Spearman threshold: R.C'); quantile( c(na.omit(c(metric$spearman$R.C[lower.tri(metric$spearman$R.C,diag = F)]))), probs = metric.th);
+print('Spearman threshold: R.D'); quantile( c(na.omit(c(metric$spearman$R.D[lower.tri(metric$spearman$R.D,diag = F)]))), probs = metric.th); 
+
 ggplot()+ 
   stat_density( aes( x=c(na.omit(c(metric$spearman$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
   stat_density( aes( x=c(na.omit(c(metric$spearman$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
@@ -244,6 +253,9 @@ ggplot()+
   scale_x_continuous(limits=c(-1,1))
 
 #VLR
+print('VLR threshold: R.C'); quantile( c(na.omit(c(metric$VLR$R.C[lower.tri(metric$VLR$R.C,diag = F)]))), probs = metric.th);
+print('VLR threshold: R.D'); quantile( c(na.omit(c(metric$VLR$R.D[lower.tri(metric$VLR$R.D,diag = F)]))), probs = metric.th); 
+
 ggplot()+ 
   stat_density( aes( x=c(na.omit(c(metric$VLR$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
   stat_density( aes( x=c(na.omit(c(metric$VLR$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
@@ -253,6 +265,9 @@ ggplot()+
   scale_x_continuous(limits=c(0.,1.0))
 
 #KL
+print('KL threshold: R.C'); quantile( c(na.omit(c(metric$KL$R.C[lower.tri(metric$KL$R.C,diag = F)]))), probs = metric.th);
+print('KL threshold: R.D'); quantile( c(na.omit(c(metric$KL$R.D[lower.tri(metric$KL$R.D,diag = F)]))), probs = metric.th);
+
 ggplot()+ 
   stat_density( aes( x=c(na.omit(c(metric$KL$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
   stat_density( aes( x=c(na.omit(c(metric$KL$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
@@ -262,6 +277,10 @@ ggplot()+
   scale_x_continuous(limits=c(0,8))
 
 #BC
+print('BC threshold: R.C'); quantile( c(na.omit(c(metric$BC$R.C[lower.tri(metric$BC$R.C,diag = F)]))), probs = metric.th);
+print('BC threshold: R.D'); quantile( c(na.omit(c(metric$BC$R.D[lower.tri(metric$BC$R.D,diag = F)]))), probs = metric.th);
+
+
 ggplot()+ 
   stat_density( aes( x=c(na.omit(c(metric$BC$R.C[lower.tri(metric$BC$R.C,diag = F)]))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
   stat_density( aes( x=c(na.omit(c(metric$BC$R.D[lower.tri(metric$BC$R.D,diag = F)]))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
@@ -289,13 +308,8 @@ qplot(list(c(metric$pearson$R.C),c(metric$pearson$R.D)), geom="density", fill="r
 hist(metric$pearson$R.C,nclass=100,xlim = c(-1,1))
 
 
-# get upper and lower quantiles for nvertex = 100 
-
-nvert <- (nrow(rab.sub$R.C)-1)*(ncol(rab.sub$R.C)-2)
 
 
-
-quantile(metric$pearson$R.C,probs= 1/nvert, na.rm = T)
 
 
   ####################################################################################
