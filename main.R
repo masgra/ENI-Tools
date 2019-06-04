@@ -88,7 +88,7 @@ otu.sub <- exclude_rare(otu.sub, names.stay = otu.rank)
 
 ## 5) Subset separation and exclusion of rare species from QUIIME tabel
 
-reset.file = FALSE
+reset.file = F
 if (reset.file){
   otu.q <- read.csv(paste(path.store,"QUIIME-all.txt", sep=""), header = T, sep = "\t", 
                     check.names = TRUE, row.names = 1)
@@ -101,9 +101,10 @@ if (reset.file){
   otu.q.sub$R.D <- otu.q[ ,which(colnames(otu.q) %in% c(Reactor$R.D, descripts))]
   otu.q.sub$R.R <- otu.q[ ,which(colnames(otu.q) %in% c(Reactor$R.R, descripts))]
   
+  otu.q.sub<-lapply(otu.q.sub,function(x) cbind( (x[,1:(ncol(x)-1)]/colSums(x[,1:(ncol(x)-1)])),x[,ncol(x)]))
   
   # write OTU QUIIME table to file (for CoNet)
-  write.table(cbind('#OTU ID' = rownames(otu.q.sub$R.C), otu.q.sub$R.C) ,file = paste(path.store,"QUIIME-RC-rar",nOTU,".txt", sep=""),
+  write.table(cbind('#OTU ID' = rownames(otu.q.sub$R.C), otu.q.sub$R.C) ,file = paste(path.store,"QUIIME-RC-rar-abs",nOTU,".txt", sep=""),
               quote = F, sep='\t', eol='\n', na='NA', row.names = F)
   write.table(cbind('#OTU ID' = rownames(otu.q.sub$R.D), otu.q.sub$R.D) ,file = paste(path.store,"QUIIME-RD-rar",nOTU,".txt", sep=""),
               quote = F, sep='\t', eol='\n', na='NA', row.names = F)
@@ -149,15 +150,153 @@ plot(clr(otu.sub$R.D$S9[1:l]), clr(otu.sub$R.D$S11[1:l])) # high vs low expresse
   
   
 # get inverse simpson indices 
-diversity(as.matrix(otu[,2:ncol(otu)]), index = "invsimpson", MARGIN = 2,base = exp(1))
-diversity(as.matrix(otu.sub$R.C), index = "invsimpson", MARGIN = 2) 
-diversity(as.matrix(otu.sub$R.D), index = "invsimpson", MARGIN = 2) 
-diversity(as.matrix(otu.sub$R.R), index = "invsimpson", MARGIN = 2) 
+vegan::diversity(as.matrix(otu[,2:ncol(otu)]), index = "invsimpson", MARGIN = 2)
+vegan::diversity(as.matrix(otu.sub$R.C), index = "invsimpson", MARGIN = 2) 
+vegan::diversity(as.matrix(otu.sub$R.D), index = "invsimpson", MARGIN = 2) 
+vegan::diversity(as.matrix(otu.sub$R.R), index = "invsimpson", MARGIN = 2) 
 
 
+rm(l)
+
+
+####################################################################################
+# -- plot frequencies of metrics
+metric <- list()
+pcount <- .5
+
+# calculate relative abundancies
+rab.sub <- lapply(otu.sub, function(x) {
+  # add small pseudo-count
+  x[x<1.0] <- pcount
+  res <- sweep(x,2,colSums(x),"/")
+  return(res)})
+  
+# Pearson Correlation
+metric$pearson <- lapply(rab.sub, function(x) {
+  res <- cor(t(x),method = "pearson")
+  diag(res)=NA
+  # remove "not asignede" (trash component) component
+  res <-  as.data.frame(res[which(!(rownames(res) == "Not_assigned")),])
+  res$"Not_assigned" <- NULL
+  return(as.matrix(res)) })
+
+# Spearman correlation
+metric$spearman <- lapply(rab.sub, function(x) {
+  res <- cor(t(x),method = "spearman")
+  diag(res)=NA
+  # remove "not asignede" (trash component) component
+  res <-  data.frame(res[which(!(rownames(res) == "Not_assigned")),])
+  res$"Not_assigned" <- NULL
+  return(as.matrix(res))})
+
+#scaled variance log-ratio
+metric$VLR <- lapply(rab.sub, function(x){
+  res <- 1-exp(-sqrt(balance::vlr(t(x), alpha = min(x)/2)))
+  diag(res)=NA
+  # remove "not asignede" (trash component) component
+  res <-  as.data.frame(res[which(!(rownames(res) == "Not_assigned")),])
+  res$"Not_assigned" <- NULL
+  return(as.matrix(res)) })
+
+# Kullback-Leibler dissimilarity
+metric$KL <- lapply(rab.sub, function(x){
+  res <- flexmix::KLdiv(t(x),eps=1e-8)
+  res <- res + t(res)
+  diag(res)=NA
+  # remove "not asignede" (trash component) component
+  res <-  as.data.frame(res[which(!(rownames(res) == "Not_assigned")),])
+  res$"Not_assigned" <- NULL
+  return(as.matrix(res)) })
+
+#Bray Curtis dissimilarity
+metric$BC<-lapply(rab.sub,function(x) {
+  res <- 1-as.matrix(vegan::vegdist(x, method="bray", binary=F, diag=F, upper=F, na.rm = T))
+  diag(res)=NA
+  # remove "not asignede" (trash component) component
+  res <-  as.data.frame(res[which(!(rownames(res) == "Not_assigned")),])
+  res$"Not_assigned" <- NULL
+  return(as.matrix(res)) })
+
+
+
+
+# plot frequency histograms
+
+
+
+library("ggplot2")
+#Parson
+ggplot()+ 
+  stat_density( aes( x=c(na.omit(c(metric$pearson$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
+  stat_density( aes( x=c(na.omit(c(metric$pearson$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
+  scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
+  labs(title ='Pairwise Pearson Coefficient Dencity', x="pairwise Pearson Coefficient", y="densiy" )+
+  theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
+  scale_x_continuous(limits=c(-1,1))
+
+#Spearman
+ggplot()+ 
+  stat_density( aes( x=c(na.omit(c(metric$spearman$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
+  stat_density( aes( x=c(na.omit(c(metric$spearman$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
+  scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
+  labs(title ='Pairwise Spearman Coefficient Dencity', x="pairwise Spearman Coefficient", y="densiy" )+
+  theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
+  scale_x_continuous(limits=c(-1,1))
+
+#VLR
+ggplot()+ 
+  stat_density( aes( x=c(na.omit(c(metric$VLR$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
+  stat_density( aes( x=c(na.omit(c(metric$VLR$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
+  scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
+  labs(title ='Pairwise Variance of log-ratio Dencity', x="pairwise variance of log-ratios", y="densiy" )+
+  theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
+  scale_x_continuous(limits=c(0.,1.0))
+
+#KL
+ggplot()+ 
+  stat_density( aes( x=c(na.omit(c(metric$KL$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
+  stat_density( aes( x=c(na.omit(c(metric$KL$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
+  scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
+  labs(title ='Pairwise Kullback-Leibler dissimilarity Density', x="pairwise Kullback-Leibler dissimilarity", y="densiy" )+
+  theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
+  scale_x_continuous(limits=c(0,8))
+
+#BC
+ggplot()+ 
+  stat_density( aes( x=c(na.omit(c(metric$BC$R.C[lower.tri(metric$BC$R.C,diag = F)]))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
+  stat_density( aes( x=c(na.omit(c(metric$BC$R.D[lower.tri(metric$BC$R.D,diag = F)]))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
+  scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
+  labs(title ='Pariwise Bray Curtis dissimilarity Density', x="pairwise Bray Curtis dissimilarity", y="densiy" )+
+  theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
+  scale_x_continuous(limits=c(0,1))
   
   
-  rm(l)
+  
+
+
+qplot(list(c(metric$pearson$R.C),c(metric$pearson$R.D)), geom="density", fill="red", alpha=I(.5),
+      main="Distribution of Gas Milage", xlab="Miles Per Gallon",
+      ylab="Density")
+
+
+
+  geom_ribbon(data=subset(gg, x>=0), aes(x=x,ymax=y), ymin=0, fill="black", alpha=0.7) + 
+  theme(legend.position="none") + 
+  labs(title =expression('Btw. Condition Dist. '*Delta[A]), x=NULL, y=NULL )+
+  theme(text = element_text(size=12), axis.text = element_text(size=10)) +
+  scale_x_continuous(limits=c(-2.5,.5))
+
+hist(metric$pearson$R.C,nclass=100,xlim = c(-1,1))
+
+
+# get upper and lower quantiles for nvertex = 100 
+
+nvert <- (nrow(rab.sub$R.C)-1)*(ncol(rab.sub$R.C)-2)
+
+
+
+quantile(metric$pearson$R.C,probs= 1/nvert, na.rm = T)
+
 
   ####################################################################################
   # -- SPICE-EASI
