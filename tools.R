@@ -14,7 +14,7 @@ write_th_file = function(x, methods, path.out){
                     paste(methods[i],'~lowerThreshold=',round(unlist(x[[i]][j])[2],digits=4),sep='') )
     }
     # wirite emty line
-    writeLines(c(th.lines,''),fileConn)
+    writeLines(th.lines,fileConn)
     # close fiel
     close(fileConn)
   }

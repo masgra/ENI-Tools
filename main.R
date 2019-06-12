@@ -189,14 +189,14 @@ metric$spearman <- lapply(rab.sub, function(x) {
   res$"Not_assigned" <- NULL
   return(as.matrix(res))})
 
-#scaled variance log-ratio
-metric$VLR <- lapply(rab.sub, function(x){
-  res <- 1-exp(-sqrt(balance::vlr(t(x), alpha = min(x)/2)))
-  diag(res)=NA
-  # remove "not asignede" (trash component) component
-  res <-  as.data.frame(res[which(!(rownames(res) == "Not_assigned")),])
-  res$"Not_assigned" <- NULL
-  return(as.matrix(res)) })
+## scaled variance log-ratio
+# metric$VLR <- lapply(rab.sub, function(x){
+#   res <- 1-exp(-sqrt(balance::vlr(t(x), alpha = min(x)/2)))
+#   diag(res)=NA
+#   # remove "not asignede" (trash component) component
+#   res <-  as.data.frame(res[which(!(rownames(res) == "Not_assigned")),])
+#   res$"Not_assigned" <- NULL
+#   return(as.matrix(res)) })
 
 # Kullback-Leibler dissimilarity
 metric$KL <- lapply(rab.sub, function(x){
@@ -232,8 +232,9 @@ th.quntils <- rapply(metric.dist, function(x) as.matrix(quantile( x , probs = me
 
 # write threshold file
 source("tools.R")
-methods.names= c('correl_pearson', 'correl_spearman', 'sim_varlogratio', 'dist_kullbackleibler', 'dist_bray')
-write_th_file(th.quntils,methods.names,paste(nc.path,'/CoNet-IN/th_file-intersect-', sep=''))
+methods.names= c('correl_pearson', 'correl_spearman', #'sim_varlogratio', 
+                 'dist_kullbackleibler', 'dist_bray')
+write_th_file(th.quntils,methods.names,paste(nc.path,'/CoNet-IN/th_file-union-', sep=''))
 
 
 # plot frequency histograms
@@ -256,14 +257,14 @@ ggplot()+
   theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
   scale_x_continuous(limits=c(-1,1))
 
-#VLR
-ggplot()+ 
-  stat_density( aes( x=c(na.omit(c(metric$VLR$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
-  stat_density( aes( x=c(na.omit(c(metric$VLR$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
-  scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
-  labs(title ='Pairwise Variance of log-ratio Dencity', x="pairwise variance of log-ratios", y="densiy" )+
-  theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
-  scale_x_continuous(limits=c(0.,1.0))
+# #VLR
+# ggplot()+ 
+#   stat_density( aes( x=c(na.omit(c(metric$VLR$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
+#   stat_density( aes( x=c(na.omit(c(metric$VLR$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
+#   scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
+#   labs(title ='Pairwise Variance of log-ratio Dencity', x="pairwise variance of log-ratios", y="densiy" )+
+#   theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
+#   scale_x_continuous(limits=c(0.,1.0))
 
 #KL
 ggplot()+ 
@@ -289,7 +290,7 @@ ggplot()+
 metric.r <- list()
 metric.r$pearson <- lapply(metric.dist$pearson, function(x) length(x) - rank( x ,ties.method = "average" , na.last = T)) 
 metric.r$spearman <- lapply(metric.dist$spearman, function(x) length(x) - rank(x,ties.method = "average" , na.last = T)) 
-metric.r$VLR <- lapply(metric.dist$VLR, function(x) rank(x , ties.method = "average" , na.last = T)) 
+# metric.r$VLR <- lapply(metric.dist$VLR, function(x) rank(x , ties.method = "average" , na.last = T)) 
 metric.r$KL <- lapply(metric.dist$KL, function(x) rank(x,ties.method = "average" , na.last = T))
 metric.r$BC <- lapply(metric.dist$BC, function(x) rank(x,ties.method = "average" , na.last = T))
 
@@ -304,9 +305,9 @@ rm(n.seq)
 
 
 # get upper and lower quantiles for nvertex = 100 
-# n.vert <- (nrow(rab.sub$R.C)-1)*(nrow(rab.sub$R.C)-2)/2
-# n.th <- 499 # = n=1000!
-# metric.th <- c((n.vert-n.th)/n.vert, 1-(n.vert-n.th)/n.vert)
+n.vert <- (nrow(rab.sub$R.C)-1)*(nrow(rab.sub$R.C)-2)/2
+n.th <- 499 # = n=1000!
+metric.th <- c((n.vert-n.th)/n.vert, 1-(n.vert-n.th)/n.vert)
 
 
 # get postionons that exceed thresholds
@@ -331,10 +332,10 @@ bb$spearman <- lapply(names(metric.dist$spearman), function(x){
      max( metric.dist$spearman[[x]][metric.exceed.pos[[x]]$high.rank], na.rm = T))}) 
 names(bb$spearman) <- names(metric.dist$spearman)
 
-bb$VLR <- lapply(names(metric.dist$VLR), function(x){
-  c( min( metric.dist$VLR[[x]][metric.exceed.pos[[x]]$high.rank], na.rm = T), 
-     max( metric.dist$VLR[[x]][metric.exceed.pos[[x]]$low.rank], na.rm = T))}) 
-names(bb$VLR) <- names(metric.dist$VLR)
+# bb$VLR <- lapply(names(metric.dist$VLR), function(x){
+#   c( min( metric.dist$VLR[[x]][metric.exceed.pos[[x]]$high.rank], na.rm = T), 
+#      max( metric.dist$VLR[[x]][metric.exceed.pos[[x]]$low.rank], na.rm = T))}) 
+# names(bb$VLR) <- names(metric.dist$VLR)
 
 bb$KL <- lapply(names(metric.dist$KL), function(x){
   c( min( metric.dist$KL[[x]][metric.exceed.pos[[x]]$high.rank], na.rm = T), 
@@ -349,10 +350,13 @@ names(bb$BC) <- names(metric.dist$BC)
 
 # write threshold file
 source("tools.R")
-methods.names= c('correl_pearson', 'correl_spearman', 'sim_varlogratio', 'dist_kullbackleibler', 'dist_bray')
-write_th_file(bb,methods.names,paste(nc.path,'/CoNet-IN/th_file-union-', sep=''))
+methods.names= c('correl_pearson', 'correl_spearman', #'sim_varlogratio', 
+                 'dist_kullbackleibler', 'dist_bray')
+write_th_file(bb,methods.names,paste(nc.path,'/CoNet-IN/th_file-intersection-', sep=''))
 
-rm(bb,metric,metric.dist,metric.exceed.pos,metric.r,th.quntils, i, methods.names,metric.th, min.rank, n.vert)
+
+
+rm(bb,metric.dist,metric.exceed.pos,metric.r,th.quntils, i, methods.names,metric.th, min.rank, n.vert)
 
   ####################################################################################
   # -- SPICE-EASI
