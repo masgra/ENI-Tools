@@ -115,16 +115,21 @@ ds$RC$EB <- read.csv(paste(nc.path,"Results/Network-Analysis/RC-002_edge.csv", s
 ds$RD$EB.sub <- read.csv(paste(nc.path,"Results/Network-Analysis/RD-002_intersect-edge.csv", sep=""), header = T, sep = ",")$EdgeBetweenness
 ds$RC$EB.sub <- read.csv(paste(nc.path,"Results/Network-Analysis/RC-002_intersect-edge.csv", sep=""), header = T, sep = ",")$EdgeBetweenness
 
-# medians are similar? --> rejected. p<0.05
+# H0: distributions are not shifted? --> accept because p>0.05 (0.1215) 
 wilcox.test(ds$RC$EB, ds$RC$EB.sub, correct = F)
-# median(ds$RC$EB) !> median(ds$RC$EB.sub)? -> accepted. p>.05 :: EB is equal or greater than EB.sub
-wilcox.test(ds$RC$EB, ds$RC$EB.sub, correct = F,alternative = c("greater"))
+# H0: EB.sub distributions is not greater than EB? -> accepted. p > 0.05 (0.9393)
+wilcox.test(ds$RC$EB.sub, ds$RC$EB, correct = F,alternative = c("greater"))
 
-# medians are similar? --> rejected. p<0.05
+# H0: distributions are not shifted? --> rejected because p<0.05 (~0)
 wilcox.test(ds$RD$EB, ds$RD$EB.sub, correct = F)
-# median(ds$RC$EB) !> median(ds$RC$EB.sub) -> rejected. p<<.05 :: EB is equal or greater than EB.sub
-wilcox.test(ds$RD$EB, ds$RD$EB.sub, correct = F, alternative = c("greater"))
-#both cases: mean is different, especially for RD
+# H0: EB.sub distributions is not greater than EB? -> accepted. p > 0.05 (1.0)
+wilcox.test(ds$RD$EB.sub, ds$RD$EB, correct = F, alternative = c("greater"))
+
+#RC: distribution of Edge Betweenness from sub set is similar to overall distribution. 
+#RD: distribution of Edge Betweenness from sub set is significantly different to overall distribution. 
+#    However, the shift is not significant upward (it is significant towards lower betweenness).
+#    --> some metrics might generate edges with very high betweenness which are not supported by other metrices. 
+#        (the correllation metrices)
 
 
 
