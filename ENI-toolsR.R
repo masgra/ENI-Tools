@@ -13,7 +13,7 @@ source("preprocessing.R")
 otu <- read.csv(paste(path.store,"table-all.txt", sep=""), header = T, sep = "\t")
 
 ## 3) OTU rank based selection:
-max.rank = 20
+max.rank = 100
 min.rank = 1
 otu.rank <- count_ranked_range(otu, min.lim = min.rank, max.lim = max.rank)
 nOTU = max.rank
@@ -39,7 +39,7 @@ library(igraph)
 library(Matrix)
 
 # set number of replicates in StaRS
-stars.replicates = 50
+stars.replicates = 20
 
 # exclude reference reactor
 otu.sub$R.R <- NULL
@@ -48,8 +48,8 @@ SE <- list()
 # Spiec easy: non-normalized count OTU/data table with samples on rows and features/OTUs in columns
 ptm <- proc.time()
 # set parameters for glasso
-param.glasso <- list("RC"=list(nlambda=100,"lambda"=1e-1),
-                     "RD"=list(nlambda=50,"lambda"=1e-1))
+param.glasso <- list("RC"=list(nlambda=99,"lambda"=5e-1),
+                     "RD"=list(nlambda=99,"lambda"=5e-1))
 # runn SPEC-EASI with glasso                   
 SE$glasso <- mapply( function(x,param) {
   list(spiec.easi(t(x), nlambda= param$nlambda, method = "glasso", verbose = T, 
@@ -57,9 +57,9 @@ SE$glasso <- mapply( function(x,param) {
                   lambda.min.ratio= param$lambda))}, 
   otu.sub, param.glasso)
 
-# set parameters fro MB
-param.mb <- list("RC"=list(nlambda=50,"lambda"=1e-1),
-                 "RD"=list(nlambda=50,"lambda"=1e-1))
+a# set parameters fro MB
+param.mb <- list("RC"=list(nlambda=99,"lambda"=5e-1),
+                 "RD"=list(nlambda=99,"lambda"=5e-1))
 # runn SPEC-EASI with MB                   
 SE$mb <- mapply( function(x,param) {
   list(spiec.easi(t(x), nlambda= param$nlambda, method = "mb", verbose = T, 
@@ -79,30 +79,72 @@ lapply(SE$mb, function(x) {list("0pt. lambda" = getOptLambda(x),
                                 "n of opt. lambda" = getOptInd(x),
                                 "stability" = getStability(x))})
 
+# sparCC: inital model estimation 
+# Open:: 
+# -- p-value calculation and network correction (not tested yet)
+# -- add association sign (mutualExclusion, copresence) to igraph edges 
 
 
-Sparcc.res  <- lapply(otu.sub, function(x) sparcc(t(x), iter = 20, inner_iter = 30, th = 0.25))
-# p-value calcualtion for sparcc
-Sparcc.pval <- lapply(otu.sub, function(x) pval.sparccboot(sparccboot(t(x), R =1000, ncpus=2), sided = "both"))
-# save sparcc p-value file 
-save(Sparcc.pval, file=paste(nc.path ,"Export2/sparccPVAL-N1000-01.RData",sep=""))
+# Define (arbitrary) threshold for SparCC correlation matrix for the graph
+sparcc.th= 0
 
-vertix <- as.list(name=rownames(otu.sub$R.C)); 
-names(vertix) <- rownames(otu.sub$R.C)
+SE$sparcc  <- lapply(otu.sub, function(x) {
+  res <- sparcc(t(x), iter = 20, inner_iter = 30, th = 0.1)
+  ## set values below threshold to zero
+  refit <- abs(res$Cor) >= sparcc.th
+  diag(refit) <- 0
+  list(est = res, refit = refit) })
 
-## Define (arbitrary) threshold for SparCC correlation matrix for the graph
-SE$sparcc <- lapply(Sparcc.res, function(x) (abs(x$Cor) >= 0.9) & (abs(x$Cor) < 1.0))
-lapply(SE$sparcc, function(x) diag(x) <-0)
-SE$sparcc <- lapply(SE$sparcc, function(x) Matrix(x, sparse=TRUE))
-
-# Save the SE object
-save(SE, file=paste(nc.path ,"Export2/igraph-N1000-01.RData",sep=""))
+# SprarCC p-value estimation. 
+# Multiply with refit matrix "p.refit" to apply significance filtering to the data.
+compute.pval= FALSE
+sparcc.p.th= .05
+bootstraps = 100
+if (compute.pval){
+bootstap_p = function(x,y) {
+    p.val <- pval.sparccboot(sparccboot(t(y), R=bootstraps, ncpus = 4 ), sided="both")
+    pval <- matrix(0, round(.5+sqrt(2*length(p.val$pvals)+.25)), round(.5+sqrt(2*length(p.val$pvals)+.25)))
+    pval[lower.tri(pval, diag=FALSE)] <- p.val$pvals
+    p.refit <- as.matrix((t(pval)<=sparcc.p.th)*x$refit)
+    p.refit[is.na(p.refit)] <-0
+    return(list("est"=x$est, "refit"=x$refit, "p.values"=t(pval), "p.refit" = p.refit)) }
+SE$sparcc$R.C <- bootstap_p(x=SE$sparcc$R.C, y=otu.sub$R.C)
+SE$sparcc$R.D <- bootstap_p(x=SE$sparcc$R.D, y=otu.sub$R.C)
+}
 
 ## create irgaph objects 
 ig <- list()
 ig$glasso <- lapply(SE$glasso, function(x) adj2igraph(getRefit(x),vertex.attr=list("name"=rownames(otu.sub$R.C))))
 ig$mb <- lapply(SE$mb, function(x) adj2igraph(getRefit(x),vertex.attr=list("name"=rownames(otu.sub$R.C))))
-ig$sparcc <- lapply(SE$sparcc, function(x) adj2igraph(x,vertex.attr=list("name"=rownames(otu.sub$R.C))))
+ig$sparcc <- lapply(SE$sparcc, function(x) adj2igraph(x$refit,vertex.attr=list("name"=rownames(otu.sub$R.C))))
+if(compute.pval){ # make p-value adgustment, if 
+  ig$sparcc <- lapply(SE$sparcc, function(x) adj2igraph(x$p.refit,vertex.attr=list("name"=rownames(otu.sub$R.C))))
+}
+
+
+generat_edge_label <- function(graph, data, names){
+  edges <- E(graph)
+  param <- list()
+  for(i in 1:length(edges)){
+    nodes <- ends(graph,edges[i])
+    param <- append(param,data[which(names==nodes[1]), which(names==nodes[2])])
+  }
+  return(param)
+}
+
+
+b <- lapply(a, function(x){
+  if(x>0){
+    return("copresence")
+  }else if (x<0){
+      return("mutualExclusion")
+  }else{
+    return("none")
+  }})
+
+
+
+a<- generat_edge_label(graph=ig$glasso$R.C,data=SE.res$glasso$R.C$weight ,names=rownames(otu.sub$R.C)  )
 
 
 
@@ -129,32 +171,61 @@ plot(ig$sparcc$R.D, layout=am.coord, vertex.size=vsize, vertex.label=NA, main="S
 
 
 
+## set weights for final graph (possible threshold setting)
+SE.res <-list()
+SE.res$glasso <- lapply(SE$glasso, function(x) { list("weight"= as.matrix(cov2cor(getOptCov(x)) * getRefit(x))) })
+SE.res$mb <- lapply(SE$mb, function(x) { list("weight"= as.matrix(as.matrix(getOptBeta(x)) * getRefit(x))) })
+SE.res$sparcc <- lapply(SE$sparcc, function(x){ list("weight"= as.matrix(as.matrix(x$est$Cor) * x$refit)) })
+if(compute.pval){ # make p-value adgustment, if 
+  SE.res$sparcc <- lapply(SE$sparcc, function(x){ list("weight"= as.matrix(as.matrix(x$est$Cor) * x$p.refit)) })
+}
+
+hist(SE.res$glasso$R.C$weight[SE.res$glasso$R.C$weight != 0], main='', xlab='edge weights', nclass =100)
+hist(SE.res$glasso$R.D$weight[SE.res$glasso$R.C$weight != 0], main='', xlab='edge weights', nclass =100)
+hist(SE.res$mb$R.C$weight[SE.res$glasso$R.C$weight != 0], main='', xlab='edge weights', nclass =100)
+hist(SE.res$mb$R.D$weight[SE.res$glasso$R.C$weight != 0], main='', xlab='edge weights', nclass =100)
+hist(SE.res$sparcc$R.C$weight[SE.res$glasso$R.C$weight != 0], main='', xlab='edge weights', nclass =100)
+hist(SE.res$sparcc$R.D$weight[SE.res$glasso$R.C$weight != 0], main='', xlab='edge weights', nclass =100)
 
 
+# -- weigth filtering 
+source("tools.R")
 
-secor  <- cov2cor(getOptCov(SE.glasso))
-sebeta <- symBeta(getOptBeta(SE.mb), mode='maxabs')
-elist.gl     <- summary(triu(secor*getRefit(SE.glasso), k=1))
-elist.mb     <- summary(sebeta)
-elist.sparcc <- summary(sparcc.graph*sparcc.amgut$Cor)
+n.ranks = 50
+how = "rank1" # ranks absolute values
 
-hist(elist.sparcc[,3], main='', xlab='edge weights')
-hist(elist.mb[,3], add=TRUE, col='forestgreen')
-hist(elist.gl[,3], add=TRUE, col='red')
+SE.res$glasso <- lapply(SE.res$glasso, function(x) { list(weight= x$weight, th.weight = weight_filtering(x$weight, p=n.ranks, how=how))})
+SE.res$mb <- lapply(SE.res$mb, function(x) { list(weight= x$weight, th.weight = weight_filtering(x$weight, p=n.ranks, how=how))})
+SE.res$sparcc <- lapply(SE.res$sparcc, function(x) { list(weight= x$weight, th.weight = weight_filtering(x$weight, p=n.ranks, how=how))})
 
 
 ##  trasfere the networks to cytoscape
 
-# if(!"RCy3" %in% installed.packages()){
-#   install.packages("BiocManager")
-#   BiocManager::install("RCy3")
-# }
+ if(!"RCy3" %in% installed.packages()){
+   install.packages("BiocManager")
+   BiocManager::install("RCy3")
+ }
 library(RCy3)
+
+# better export matrix and use aMatReader 
 
 # open cytoscape befor running because the network will be opened in cytoscape 3.x
 createNetworkFromIgraph(ig$glasso$R.C,"RC-glasso")
-createNetworkFromIgraph(ig$glasso$R.D,"RD-glasso")
-createNetworkFromIgraph(ig$mb$R.C,"RC-MB")
-createNetworkFromIgraph(ig$mb$R.D,"RD-MB")
-createNetworkFromIgraph(ig$sparcc$R.C,"RC-sparcc")
-createNetworkFromIgraph(ig$sparcc$R.D,"RD-sparcc")
+
+
+a <- lapply(SE.res$glasso, function(x) { n <- data.frame(x$th.weight, row.names = names)
+                                         colnames(n) <- names    
+                                         return(n)})
+
+
+w <-  lapply(SE.res, function(y) {
+  lapply(y ,function(x) { 
+    n <- data.frame(x$th.weight, row.names = names)
+    colnames(n) <-names
+    return(n)})
+})
+
+
+mapply(function(x,alg) {
+  mapply(function(y,reac) {
+    write.csv(y, paste(nc.path,"/Export2/weigths-",reac,"-",alg,"-all.csv", sep=""), quote = FALSE)},x ,names(x) )} ,w,names(w))

@@ -137,7 +137,7 @@ table2QUIIME.table <- function(otu, taxa){
 count_ranked_range <- function(otu, min.lim = -1, max.lim = -1){
   # get OTU sorted by mean ranking 
   
-  # rank every column, subtract minimum
+  # rank every column, subtract minimum (this reverses the order of ranks)
   otu.rank <- apply(otu, 2, function(x) rank(x)-min(rank(x)))
   # get rows from subsection
   otu.rank <- rownames(otu.rank[which( rownames(otu.rank) %in% names(sort(rowSums(otu.rank),
