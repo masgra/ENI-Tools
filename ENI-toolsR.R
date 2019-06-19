@@ -13,7 +13,7 @@ source("preprocessing.R")
 otu <- read.csv(paste(path.store,"table-all.txt", sep=""), header = T, sep = "\t")
 
 ## 3) OTU rank based selection:
-max.rank = 20
+max.rank = 1000
 min.rank = 1
 otu.rank <- count_ranked_range(otu, min.lim = min.rank, max.lim = max.rank)
 nOTU = max.rank
@@ -39,7 +39,7 @@ library(igraph)
 library(Matrix)
 
 # set number of replicates in StaRS
-stars.replicates = 50
+stars.replicates = 5
 
 # exclude reference reactor
 otu.sub$R.R <- NULL
@@ -48,7 +48,7 @@ SE <- list()
 # Spiec easy: non-normalized count OTU/data table with samples on rows and features/OTUs in columns
 ptm <- proc.time()
 # set parameters for glasso
-param.glasso <- list("RC"=list(nlambda=100,"lambda"=1e-1),
+param.glasso <- list("RC"=list(nlambda=50,"lambda"=1e-1),
                      "RD"=list(nlambda=50,"lambda"=1e-1))
 # runn SPEC-EASI with glasso                   
 SE$glasso <- mapply( function(x,param) {
@@ -58,19 +58,19 @@ SE$glasso <- mapply( function(x,param) {
   otu.sub, param.glasso)
 
 # set parameters fro MB
-param.mb <- list("RC"=list(nlambda=50,"lambda"=1e-1),
-                 "RD"=list(nlambda=50,"lambda"=1e-1))
+param.mb <- list("RC"=list(nlambda=100,"lambda"=.5e-1),
+                 "RD"=list(nlambda=100,"lambda"=.5e-1))
 # runn SPEC-EASI with MB                   
 SE$mb <- mapply( function(x,param) {
   list(spiec.easi(t(x), nlambda= param$nlambda, method = "mb", verbose = T, 
-                  pulsar.params=list(rep.num=stars.replicates, ncores=1), 
+                  pulsar.params=list(rep.num=20, ncores=1), 
                   lambda.min.ratio= param$lambda))}, 
   otu.sub, param.mb)
 proc.time() - ptm
 
 # quanity check
 # optimization: stability should be close to target stability 0.05. Increase nlambda 
-# or lambda.min.rat to get better target stability. However, if the network 
+# or lowering lambda.min.rat to get better target stability. However, if the network 
 # gets empty (getOptInd <= 1), lambda.min.rate must be increased.  
 lapply(SE$glasso, function(x) {list("0pt. lambda" = getOptLambda(x),
                                     "n of opt. lambda" = getOptInd(x),
@@ -111,7 +111,7 @@ ig$sparcc <- lapply(SE$sparcc, function(x) adj2igraph(x,vertex.attr=list("name"=
 ## set size of vertex proportional to clr-mean
 vsize    <- rowMeans(clr(t(otu.sub$R.D), 1))+4.5
 # am.coord <- layout.fruchterman.reingold(ig.glasso)
-am.coord <- layout.fruchterman.reingold(ig$sparcc$R.C)
+am.coord <- layout.fruchterman.reingold(ig$mb$R.C)
 # am.coord <- layout.fruchterman.reingold(ig.mb)
 
 par(mfrow=c(2,3))
