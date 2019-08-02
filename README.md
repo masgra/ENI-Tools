@@ -1,9 +1,8 @@
 # GEN-tools
 
 This project contains the script from my master thesis project:  
-"INTEGRATED ANALYSIS OF COMPOSITIONAL MULTIOMICS TIME SERIES DATA
-FOR THE DISCOVERY OF MICROBIAL INTERACTIONS AND METABOLIC
-NETWORKS"
+*“Integrated analysis of compositional multiomics time series data for the discovery of microbial
+interactions and metabolic networks”*
 
 Submitted on July 19th, 2019
 
@@ -14,3 +13,4 @@ Submitted on July 19th, 2019
  
  
  
+[Working Group Systems Biology of Microbial Communities](https://www.ufz.de/index.php?en=38437) at the Helmholtz Center of Environmental Research (UFZ), Leipzig
