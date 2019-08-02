@@ -39,3 +39,8 @@ rsconnect/
 # own files
 *.txt
 *.Rproj
+*.png
+
+# own folders
+/Results/
+/Data/
