@@ -1,17 +1,17 @@
 # This script generates the threshold files for CoNet. 
-# currently, therer are four different metrics from CoNet implemented in this script. 
+# currently, there are four different metrics from CoNet implemented in this script. 
 # All metrics measure pairwise (univariate) associations. The thresholds limits are set
-# based on the number of pairwise assuciations to consider. 
+# based on the number of pairwise associations to consider. 
 # Two different types of threshold files are implemented:
 #
 # union: each metric result is ranked. Limits of the upper and the lower quantiles 
 # are chosen as thresholds. Threshold files can be generated in parallel for multiple 
-# datasets (experiments). (This procedure controls the number of assocaitions per metric)
+# datasets (experiments). (This procedure controls the number of associations per metric)
 # 
-# intersection: each metric result is ranked. Ranks of all metrics are sumed up. 
-# Qunatiles of the sumed ranks are computed and by that, the set of components. The
-# thresholds are set to the highes/lowes value of the corresponding metrics values of
-# this set of component. (This procedure controls the absolute number of associations for 
+# intersection: each metric result is ranked. Ranks of all metrics are summed up. 
+# Quantiles of the summed ranks are computed and by that, the set of components. The
+# thresholds are set to the highest/lowest value of the corresponding metrics values of
+# this set of components. (This procedure controls the absolute number of associations for 
 # which all metrics agree)
 # 
 
@@ -19,6 +19,7 @@
 
 ####################################################################################
 # -- General
+
 
 source("tools.R")
 # library("SpiecEasi")
@@ -65,7 +66,7 @@ ds.r <- lapply(ds, function(x) {
 metric$correl_pearson <- lapply(ds.r, function(x) {
   res <- cor(t(x),method = "pearson")
   diag(res)=NA
-  # remove "not assignede" (trash component) component
+  # remove "not assigned" (trash component) component
   res <-  as.data.frame(res[which(!(rownames(res) == "Not")),])
   res$"Not" <- NULL
   return(as.matrix(res)) })
@@ -74,7 +75,7 @@ metric$correl_pearson <- lapply(ds.r, function(x) {
 metric$correl_spearman <- lapply(ds.r, function(x) {
   res <- cor(t(x),method = "spearman")
   diag(res)=NA
-  # remove "not assignede" (trash component) component
+  # remove "not assigned" (trash component) component
   res <-  data.frame(res[which(!(rownames(res) == "Not")),])
   res$"Not" <- NULL
   return(as.matrix(res))})
@@ -85,7 +86,7 @@ metric$correl_spearman <- lapply(ds.r, function(x) {
 # metric$VLR <- lapply(ds.r, function(x){
 #   res <- 1-exp(-sqrt(balance::vlr(t(x), alpha = min(x)/2)))
 #   diag(res)=NA
-#   # remove "not assignede" (trash component) component
+#   # remove "not assigned" (trash component) component
 #   res <-  as.data.frame(res[which(!(rownames(res) == "Not")),])
 #   res$"Not" <- NULL
 #   return(as.matrix(res)) })
@@ -95,7 +96,7 @@ metric$dist_kullbackleibler <- lapply(ds.r, function(x){
   res <- flexmix::KLdiv(t(x),eps=1e-8)
   res <- res + t(res)
   diag(res)=NA
-  # remove "not assignede" (trash component) component
+  # remove "not assigned" (trash component) component
   res <-  as.data.frame(res[which(!(rownames(res) == "Not")),])
   res$"Not" <- NULL
   return(as.matrix(res)) })
@@ -105,7 +106,7 @@ metric$dist_bray<-lapply(ds.r,function(x) {
   res <- sweep(x,1,rowSums(x),"/") # set rowsum to 1 
   res <- as.matrix(vegan::vegdist(res, method="bray", binary=F, diag=T, upper=T, na.rm = T))
   diag(res)=NA
-  # remove "not assignede" (trash component) component
+  # remove "not assigned" (trash component) component
   res <-  as.data.frame(res[which(!(rownames(res) == "Not")),])
   res$"Not" <- NULL
   return(as.matrix(res)) })
@@ -122,7 +123,7 @@ ggplot()+
   stat_density( aes( x=metric.dist$correl_pearson$R.C, colour="R.C"), na.rm = T, size=1, alpha=.2)+
   stat_density( aes( x=metric.dist$correl_pearson$R.D, colour="R.D"), na.rm = T, size=1, alpha=.2)+
   scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
-  labs(title ='Pairwise Pearson Coefficient Dencity', x="pairwise Pearson Coefficient", y="densiy" )+
+  labs(title ='Pairwise Pearson Coefficient Density', x="pairwise Pearson Coefficient", y="density" )+
   theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
   scale_x_continuous(limits=c(-1,1))
 
@@ -131,7 +132,7 @@ ggplot()+
   stat_density( aes( x=metric.dist$correl_spearman$R.C, colour="R.C"), na.rm = T, size=1, alpha=.2)+
   stat_density( aes( x=metric.dist$correl_spearman$R.D, colour="R.D"), na.rm = T, size=1, alpha=.2)+
   scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
-  labs(title ='Pairwise Spearman Coefficient Dencity', x="pairwise Spearman Coefficient", y="densiy" )+
+  labs(title ='Pairwise Spearman Coefficient Density', x="pairwise Spearman Coefficient", y="density" )+
   theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
   scale_x_continuous(limits=c(-1,1))
 
@@ -140,7 +141,7 @@ ggplot()+
   stat_density( aes( x=c(na.omit(c(metric.dist$dist_kullbackleibler$R.C))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
   stat_density( aes( x=c(na.omit(c(metric.dist$dist_kullbackleibler$R.D))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
   scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
-  labs(title ='Pairwise Kullback-Leibler dissimilarity Density', x="pairwise Kullback-Leibler dissimilarity", y="densiy" )+
+  labs(title ='Pairwise Kullback-Leibler dissimilarity Density', x="pairwise Kullback-Leibler dissimilarity", y="density" )+
   theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
   scale_x_continuous(limits=c(0,8))
 
@@ -149,7 +150,7 @@ ggplot()+
   stat_density( aes( x=c(na.omit(c(metric.dist$dist_bray$R.C[lower.tri(metric.dist$dist_bray$R.C,diag = F)]))), colour="R.C"), na.rm = T, size=1, alpha=.2)+
   stat_density( aes( x=c(na.omit(c(metric.dist$dist_bray$R.D[lower.tri(metric.dist$dist_bray$R.D,diag = F)]))), colour="R.D"), na.rm = T, size=1, alpha=.2)+
   scale_color_manual("Reactro", values = c("red", "blue"), labels = c(bquote(~R[C]), bquote(~R[D])))+
-  labs(title ='Pariwise Bray-Curtis dissimilarity Density', x="pairwise Bray-Curtis dissimilarity", y="densiy" )+
+  labs(title ='Pariwise Bray-Curtis dissimilarity Density', x="pairwise Bray-Curtis dissimilarity", y="density" )+
   theme(text = element_text(size=12), axis.text = element_text(size=10), plot.title = element_text(hjust = 0.5))+
   scale_x_continuous(limits=c(0,1))
 
@@ -158,14 +159,14 @@ ggplot()+
 ####################################################################################
 # --  Compute threshold and write threshold files
 
-## rank the metric distributions: low values -> samll ranks
+## rank the metric distributions: low values -> small ranks
 metric.r <- list()
 metric.r <- lapply(metric.dist, function(x){
   lapply(x, function(y){
     rank( y ,ties.method = "average" , na.last = T)}) 
   })
 
-# swap the ranks of pearson and spearman: high valures -> samll ranks
+# swap the ranks of Pearson and spearman: high values -> small ranks
 metric.r$correl_pearson <-lapply(metric.r$correl_pearson, function(x) length(x)-x)
 metric.r$correl_spearman <-lapply(metric.r$correl_spearman, function(x) length(x)-x)
 
@@ -189,7 +190,7 @@ metric.th <- c((n.vert-(n.th/2))/n.vert, 1-(n.vert-(n.th/2))/n.vert)
 
 ## write union threshold files
 
-# compute metric quantils 
+# compute metric quantiles 
 th.quantils.union <- rapply(metric.dist, function(x) quantile( x , probs = metric.th) , how = 'list')
 # write threshold file for CoNet
 writeThresholdFile(th.quantils.union,path.out=paste(path.out,'/CoNet/th_file-union-',n.th,"-", sep=''))
@@ -207,7 +208,7 @@ rank.sum.pos <- lapply(rank.sum, function(x){
 })
 
 # calculate thresholds: min/max of metric values from those associations within
-# the upper/lower rank sum quantiles. Note that pearson & spearman again must be swaped!
+# the upper/lower rank sum quantiles. Note that Pearson & spearman again must be swapped!
 th.quantils.intersect <- list()
 
 th.quantils.intersect$correl_pearson <- mapply(function(x,y){

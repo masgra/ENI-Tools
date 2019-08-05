@@ -1,6 +1,5 @@
 
 
-
 ####################################################################################
 # -- General
 
@@ -48,7 +47,7 @@ if(!file.exists(paste(path.out, "/SpiecEasi/glasso.RData", sep=""))|refresh ){
   # set parameters for glasso
   param.glasso <- list("RC"=list(nlambda=20,"lambda"=5e-1),
                        "RD"=list(nlambda=20,"lambda"=7.5e-1))
-  # runn SPEC-EASI with glasso 
+  # run SPIEC-EASI with glasso 
   SE$glasso <- mapply( function(x,param) {gc()
     list(spiec.easi(t(x), nlambda= param$nlambda, method = "glasso", verbose = T, 
                     pulsar.params=list(rep.num=stars.replicates, ncores=1), 
@@ -70,7 +69,7 @@ if(!file.exists(paste(path.out, "/SpiecEasi/MB.RData", sep=""))|refresh ){
   # set parameters fro MB
   param.mb <- list("RC"=list(nlambda=20,"lambda"=5e-2),
                    "RD"=list(nlambda=20,"lambda"=5e-2))
-  # runn SPEC-EASI with MB                   
+  # run SPEC-EASI with MB                   
   SE$mb <- mapply( function(x,param) {gc()
     list(spiec.easi(t(x), nlambda= param$nlambda, method = "mb", verbose = T, 
                     pulsar.params=list(rep.num=stars.replicates, ncores=1), 
@@ -88,7 +87,7 @@ if(!file.exists(paste(path.out, "/SpiecEasi/MB.RData", sep=""))|refresh ){
 
 
 
-## quanity check
+## quality check
 # optimization: stability should be close to target stability 0.05. Increase nlambda 
 # or lambda.min.rat to get better target stability. However, if the network 
 # gets empty (getOptInd <= 1), lambda.min.rate must be increased.  
@@ -99,7 +98,7 @@ lapply(SE$mb, function(x) {list("0pt. lambda" = getOptLambda(x),
                                 "n of opt. lambda" = getOptInd(x),
                                 "stability" = getStability(x))})
 
-# sparCC: inital model estimation 
+# sparCC: initial model estimation 
 # --> p-value calculation and network correction is !!untested!!
 
 
@@ -214,10 +213,10 @@ hist(SE.res$mb$R.D$weight[abs(SE.res$mb$R.D$weight) > 0.0], main='MB-RD', xlab='
 # set limits for number of edges 
 n.ranks = list("R.C" = 1000, 
                "R.D" = 1000)
-# identifyer for weightFiltering()
-#  "rank1": omit all except for highest absolut association weights. 
+# identifier for weightFiltering()
+#  "rank1": omit all except for highest Absolut association weights. 
 #  "rank2": omit all except for highest and lowest association weights (half/half). 
-#  "percentil": same as "rank2", but handles input as percentils instead of number of associations.  
+#  "percentile": same as "rank2", but handles input as percentiles instead of number of associations.  
 how = "rank1" 
 
 # compute weight filtered adjacency matrix
@@ -248,11 +247,14 @@ vertex.features <- lapply(ds, function(x) list("median.abd"=apply( sweep(x,2,col
 
 
 ## add phylo-structure to export
-# this requires the structuere conversion of the tree export from MEGAN into a table structure
-# The script for this conversion also part of this project, but was implemented in python! 
+# this requires the structure conversion of the tree export from MEGAN into a table structure
+# The .biom export already results in a table structured phylo list.
+# Note that other count table exports in MEGAN require an additional export of the 
+# phylo structure (e.g. as a tree structure). The translation of those alternative 
+# structures is not implemented yet! 
 phylo <- read.csv(paste(path.in, "/MT-ortholog-all.txt", sep=""), header = T, sep = "\t", stringsAsFactors = F)
 
-# create list of featuere data frame
+# create a features data frame
 vertex.features <- lapply(vertex.features, function(x) cbind(phylo, "median.abd"= x$median.abd[match(rownames(phylo), names(x$median.abd))]))
 
 

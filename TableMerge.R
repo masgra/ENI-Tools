@@ -1,8 +1,7 @@
-
 # The purpose of this script is to:
 # - join records from the sample into a single column
 # - set the COG ID as an indicator name for components 
-# - export the count table and the ortholog structur as a text format
+# - export the count table and the ortholog structure as a text format
 #
 # This script requires a .biom output file that includes all samples/records of an experiment.
 # To create a .biom output file in MEGAN: 
@@ -11,12 +10,11 @@
 #   3) click File->Export-> as Biom File. 
 # Generating this output might take a moment. 
 #
-# The second part of this script also inclued the possibility to read and join the count 
-# table from multiple .txt/.csv cout sheets. However, this procedure is much more complicated and 
-# requires a seconday matching of the components to a ortholog structure export to recover the ortholog 
-# informantion. 
+# The second part of this script also include the possibility to read and join the count 
+# table from multiple .txt/.csv court sheets. However, this procedure is much more complicated and 
+# requires a secondary matching of the components to a ortholog structure export to recover the ortholog 
+# information. 
 # 
-
 
 
 ####################################################################################
@@ -66,7 +64,7 @@ write.table(ortholog, file=paste(path.in,"MT-ortholog-all.txt",sep = "/"),
 
 
 ####################################################################################
-# -- Alternativ approach: compute count table from (multiple) count sheets.
+# -- Alternative approach: compute count table from (multiple) count sheets.
 
 
 # # set regular expressions to search for in folder and record name. optional

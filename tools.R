@@ -2,15 +2,15 @@ ReadCountTable <- function(files , header=TRUE, sep =" " , dec = "." , row.names
                             check.names = FALSE, skip = 0, nrows = -1, fill = TRUE,
                             re.ID.separator = NULL , ID.split.elem = 1, 
                             re.samples = NULL){
-  ## reads in a list files with count data and joins dem by their rownames
-  # optional: simplifies the rownames
+  ## reads in a list files with count data and joins dem by their row names
+  # optional: simplifies the row names
   # optional: aggregates the columns by their names (by sum)
   
   # Args:
   #   files: list of data file paths
   #   header, sep, dec, row.names, col.names, check.names, skip, nrows, fill: see csv.read()
-  #   re.ID.separator: saparator to identify the rowname ID.
-  #   ID.split.elem: element to use as rowname ID (usually the first)
+  #   re.ID.separator: separator to identify the row name ID.
+  #   ID.split.elem: element to use as row name ID (usually the first)
   #   re.samples: regular expression for sample name
   #
   # Returns:
@@ -31,13 +31,13 @@ ReadCountTable <- function(files , header=TRUE, sep =" " , dec = "." , row.names
       rownames(ds.i) <- lapply(rownames(ds.i), function(x) unlist(strsplit(x,re.ID.separator))[ID.split.elem])
     }
     
-    # merge all fieles by rownames
+    # merge all fields by row names
     ds <- merge(ds,ds.i, all=T, by="row.names")
     rownames(ds) <-ds$Row.names
     ds <- ds[,-1]
   }
   
-  # aggregate recors by column names (by the output of a regular expression )
+  # aggregate records by column names (by the output of a regular expression )
   if (!is.null(re.samples)){
     samples <- sub(re.samples, "\\1", colnames(ds),perl=TRUE)
     ds <- aggregate( subset(data.frame(t(ds))), 
@@ -53,13 +53,13 @@ ReadCountTable <- function(files , header=TRUE, sep =" " , dec = "." , row.names
 
 
 Biome2Table <- function(filepath, sample.reg=NULL, rename=NULL, sort.rows=TRUE, sort.cols=TRUE ){ 
-  ## reads in a biom file and joins thier records by matching rownames
-  # optional: simplifies the rownames
+  ## reads in a biom file and joins thier records by matching row names
+  # optional: simplifies the row names
   # optional: aggregates the columns by their names (by sum)
   
   # Args:
   #   filepath: file path of .biom file
-  #   sample.reg: regular expression to identify dublicated records (otherwise no join)
+  #   sample.reg: regular expression to identify duplicated records (otherwise no join)
   #   renam: regular expression of string that should be kept as sample ID 
   #   sort.rows: flag to sort rows alphabetically (strings) or numerically (numerics)
   #   sort.cols: flag to sort columns alphabetically (strings) or numerically (numerics)
@@ -80,7 +80,7 @@ Biome2Table <- function(filepath, sample.reg=NULL, rename=NULL, sort.rows=TRUE, 
     otu <- sapply( unique( stringr::str_extract(colnames(otu), sample.reg) ), 
                    function(x) rowSums(otu[,grep(x, colnames(otu)), drop=FALSE]))
   }
-  # rearange order of columns to increasing by sample number  
+  # rearrange order of columns to increasing by sample number  
   if(!is.null(rename)){
     colnames(otu) <- stringr::str_extract(colnames(otu), "[0-9]+") # rename
       
@@ -123,7 +123,7 @@ SelectRankedComponents <- function(otu, min.lim = -1, max.lim = -1){
   # returns the names of the components between the upper and lower average ranks.
   #
   # Args:
-  #  otu: imput table with records as columns (rows=components get rankes)
+  #  otu: imput table with records as columns (rows=components get ranks)
   #  min.lim, max.lim: total average rank limits
   #
   # Return: 
@@ -144,13 +144,13 @@ SelectRankedComponents <- function(otu, min.lim = -1, max.lim = -1){
 
 
 excludeComponents <- function(x0, names.stay, trash.node.name="Not_assigned"){
-  # This function exclueds all components from the count table that are not in the given "name.stay" vector.
-  # Counts are moved to a trashnode to preserv the closure. 
+  # This function excludes all components from the count table that are not in the given "name.stay" vector.
+  # Counts are moved to a trash node to preserve the closure. 
   #
   # Args:
-  #  x0: imput table with records as columns (rows=components get rankes)
+  #  x0: imput table with records as columns (rows=components get ranks)
   #  names.stay: names vector with component names that will stay
-  #  trash.node.name: name of trashnode. A new one will be created if this row not already exists
+  #  trash.node.name: name of trash node. A new one will be created if this row not already exists
   #
   # Return: 
   #  otu.rank: a name vector of the components within the defined rank range 
@@ -167,10 +167,10 @@ excludeComponents <- function(x0, names.stay, trash.node.name="Not_assigned"){
     rownames(x)[nrow(x)] <- trash.node.name
   }
   
-  # get location of trashnode
+  # get location of trash node
   trash.row <- which(rownames(x)== trash.node.name)
   
-  # store exclude counts in trashnode 
+  # store exclude counts in trash node 
   x[trash.row, ] <- x[trash.row, ] + colSums(x0, na.rm = T) - colSums(x, na.rm = T)
   return(x)
   
@@ -181,23 +181,23 @@ excludeComponents <- function(x0, names.stay, trash.node.name="Not_assigned"){
 
 
 writeThresholdFile = function(x, methods =NULL, path.out){
-  # This function takes a list of threshold object as its input and writes them into a file fomat,
-  # that can be read in form CoNet ans an input argument. Multiple filse will be written If the list 
-  # holds thresholds for multiple expriments. 
+  # This function takes a list of threshold object as its input and writes them into a file format,
+  # that can be read in form CoNet as an input argument. Multiple files will be written If the list 
+  # holds thresholds for multiple experiments. 
   #
   # Args:
-  #  x: imput threshold list. Should look like: 
+  #  x: input threshold list. Should look like: 
   #     list( metric1=list( experiment1=[upper bound, lower bound], 
   #                         experiment2 = [...],
   #                         ... ), 
   #           metric2 = ... ), ...)
-  #  methods: optional - if names in the threshld list are different from the CoNet metric arguments
+  #  methods: optional - if names in the threshold list are different from the CoNet metric arguments
   #  path.out: place to store the output file(s) 
   #
   # Return: 
   #  none 
   
-  # Iterate over expreiments
+  # Iterate over experiments
   for (j in 1:length(x[[1]])) {
     # set experiment th-file name
     fileConn <- file(paste(path.out,names(x[[1]])[j],'.txt',sep=''))
@@ -216,9 +216,9 @@ writeThresholdFile = function(x, methods =NULL, path.out){
         stop("size of input list (= ", length(x), ") in not equal to lenght of method vector (= ", length(methods), ")." )
       }
     }
-    # wirite emty line
+    # write empty line
     writeLines(th.lines,fileConn)
-    # close fiel
+    # close file
     close(fileConn)
   }
 }
@@ -229,7 +229,7 @@ writeThresholdFile = function(x, methods =NULL, path.out){
 
 
 weightFiltering = function(data , p, how="rank1"){
-  # selects top and bottom percentil/ranked entries of a matrix and sets each other value of the matrix to zero.
+  # selects top and bottom percentile/ranked entries of a matrix and sets each other value of the matrix to zero.
   # "rank1" ranks absolute values
   # "rank2" ranks upper and lower values separately 
   # CAUTION: no NAN handling implemented yet
@@ -240,13 +240,13 @@ weightFiltering = function(data , p, how="rank1"){
   }else if(how=="rank2"){
     # two sidet ranking
     data[!((rank(data, na.last=T, ties.method = "random")<=p) | (rank(-data, na.last=T, ties.method = "random")<=p))] <- 0
-  }else if (how == "percentil"){
+  }else if (how == "percentile"){
     p <-.5 - abs(p-0.5) 
-    lim <- quantile(data, c(percentil, 1-p))
+    lim <- quantile(data, c(p, 1-p))
     data[which((data>lim[1] & data<lim[2]))] <- 0
     
   }else{
-    stop("'how' was not specified correctly. Options are 'rank1' (default), 'rank2' and 'percentil'.")
+    stop("'how' was not specified correctly. Options are 'rank1' (default), 'rank2' and 'percentile'.")
   }
   return(data)
 }
@@ -256,9 +256,9 @@ weightFiltering = function(data , p, how="rank1"){
 
 
 getCytoscapeEdgeDS <- function(x, names, expand.Unreported.Verteces=TRUE, feature = NULL){
-  # creates a data structure from a adjeszens matrix input that can easily esported as an edge table for Cytoscape. 
+  # creates a data structure from a adjacency matrix input that can easily exported as an edge table for Cytoscape. 
   # unreported notes can be added at the end of the table. 
-  # features for nodes can be added aswell. 
+  # features for nodes can be added as well. 
   
   #
   # Args:
@@ -268,13 +268,13 @@ getCytoscapeEdgeDS <- function(x, names, expand.Unreported.Verteces=TRUE, featur
   #  feature: optional additional feature list. Names must match the names of components
   #
   # Return: 
-  #  res: dataframe of edges with weights, interactions and associations
+  #  res: data frame of edges with weights, interactions and associations
   #      component1 (V1), Component2 (V2), weight, interaction, features ...  
   
 
   
   
-  # set upper diag to zero (to remove reverse interaction), set row and col name 
+  # set upper triangula to zero (to remove reverse interaction), set row and col name 
   w <- data.frame(x$th.weight*lower.tri(x$th.weight,diag=F), row.names = names)
   
   #colnames(w) <- names
@@ -291,7 +291,7 @@ getCytoscapeEdgeDS <- function(x, names, expand.Unreported.Verteces=TRUE, featur
   res$interaction <- getInteraction( x= c(res$weight) )
   
   if (expand.Unreported.Verteces){
-    # add vertex name with no edges to ensure that all verteces are later plotted in cytoscape 
+    # add vertex name with no edges to ensure that all vertices’ are later plotted in cytoscape 
     r <- data.frame(names[which(!(names %in% as.character(res$V1)))])
     if(nrow(r)>0){
       r[,2:4] <- NA
@@ -304,10 +304,5 @@ getCytoscapeEdgeDS <- function(x, names, expand.Unreported.Verteces=TRUE, featur
   }
   return(res)
 }
-
-
-
-
-
 
 
