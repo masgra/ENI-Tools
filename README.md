@@ -1,16 +1,13 @@
 # GEN-tools
 
-This project contains the script used in the master thesis:  
+This project contains the scripts used in my master thesis:  
 *“Integrated analysis of compositional multiomics time series data for the discovery of microbial
 interactions and metabolic networks”*
 
-The thesis was carried out in the working group of [Systems Biology of Microbial Communities](https://www.ufz.de/index.php?en=38437) at the Helmholtz Center of Environmental Research (UFZ), Leipzig. It was submitted on July 19th, 2019 by @grafma  ([masgra](https://github.com/masgra) on GitHub).
-
-The stage of this project is **frozen** and will further be maintained on [GitHub](https://github.com/masgra/GEN-tool).
+The thesis was carried out in the working group of [Systems Biology of Microbial Communities](https://www.ufz.de/index.php?en=38437) at the Helmholtz Center of Environmental Research (UFZ), Leipzig. It was submitted on July 19th, 2019 by [Martin Graf](https://git.ufz.de/grafma). The [GEN-tools](https://git.ufz.de/UMBSysBio/magraf) project on GitLab is frozen and will further be maintained here on GitHub.
 
  ## Purpose of the project
-Microbial Interference Networks (MIN) analysis has been shown to be a useful framework for the reconstruction of complex interactions between species. With the increasing popularity of
-metatranscriptomic sequencing, approaches established in MIN are now applied to metatranscriptomic data in Gene Expression Network (GEN) analysis. 
+Microbial Interference Networks (MIN) analysis has been shown to be a useful framework for the reconstruction of complex interactions between species. With the increasing popularity of metatranscriptomic sequencing, approaches established in MIN are now applied to metatranscriptomic data in Gene Expression Network (GEN) analysis. 
 
 In this project, I applied four conceptually different approaches of MIN, namely [CoNet](https://doi.org/10.1371/journal.pcbi.1002606) and the [sparCC](https://doi.org/10.1371/journal.pcbi.1002687), [gLasso]( https://doi.org/10.1093/biostatistics/kxm045) and [MB](http://pages.stat.wisc.edu/~shao/stat992/lasso-cons1.pdf) method from the [SpiecEasi](https://github.com/zdk123/SpiecEasi) package, on two sets of metatranscriptomic time series data. The scripts cover all aspects from the data preparation, preprocessing and filtering, initial data export and threshold calculation for CoNet, up to the network estimation and results export for the visualization and network analysis in Cytoscape. 
 
