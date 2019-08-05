@@ -17,7 +17,7 @@ In this project, I applied four conceptually different approaches of MIN, namely
 
 * [PreProcessing.R](PreProcessing.R) contains the preprocessing pipeline and export of the preprocessed count table inputs for all GEN tools. Preprocessing includes optional **zero replacement**, **rank-bases filtering** without omitting the counts **(preserves the closure)**, and **table splitting** (by experiment). 
 
-* [CoNet_thresholds.R](CoNet_thresholds.R) generates the threshold files for CoNet. The thresholds limits are set, based on the number of pairwise associations to consider.
+* [CoNet_thresholds.R](CoNet_thresholds.R) generates the threshold files for CoNet. The threshold limits are set, based on the number of pairwise associations to consider.
 
 * [GEN-tools.R]( GEN-tools.R) covers the network estimation with sparCC, gLasso, and MB (all from the [SpiecEasi](https://github.com/zdk123/SpiecEasi) package). Note that the parameters, that are used for the algorithms are optimized for a specific dataset in terms of accuracy and computational expenses. A description of how to adjust the parameters for a certain dataset is given [here](https://github.com/zdk123/SpiecEasi/blob/master/README.md). For visualization and further analysis of the networks, the .txt output files of this script can be imported into [Cytoscape]( https://cytoscape.org) via ```File->Import->Networks from file…```.
 
